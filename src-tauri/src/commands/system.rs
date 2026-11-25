@@ -22,7 +22,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{window::Color, AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, AppResult};
-use crate::service::window_pin::{self, AlwaysOnTopResult};
+#[cfg(desktop)]
+use crate::service::window_pin;
+use crate::service::window_pin::AlwaysOnTopResult;
 use crate::service::auth::{
     require_authenticated_user, require_host, PREF_REQUIRE_PASSWORD_AFTER_SIGN_OUT,
 };
@@ -271,7 +273,7 @@ pub async fn system_open_sticky_memo_window(
 
     #[cfg(not(desktop))]
     {
-        let _ = (app, uid, payload);
+        let _ = (app, uid);
         Err(AppError::Validation(
             "Floating sticky windows are only available on Desktop".to_string(),
         ))
@@ -296,6 +298,7 @@ fn validate_internal_route(route: &str) -> AppResult<&str> {
 pub async fn system_focus_main_route(app: AppHandle, route: String) -> AppResult<()> {
     let safe_route = validate_internal_route(&route)?;
     if let Some(main_win) = app.get_webview_window("main") {
+        #[cfg(desktop)]
         let _ = main_win.unminimize();
         let _ = main_win.show();
         let _ = main_win.set_focus();

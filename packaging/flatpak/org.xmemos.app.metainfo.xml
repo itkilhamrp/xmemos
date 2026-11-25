@@ -14,6 +14,7 @@
   <metadata_license>FSFAP</metadata_license>
   <project_license>AGPL-3.0-or-later</project_license>
   <url type="homepage">https://github.com/xmemos/xmemos</url>
+  <url type="vcs-browser">https://github.com/xmemos/xmemos</url>
   <content_rating type="oars-1.1" />
   <branding>
     <color type="primary" scheme_preference="light">#007aff</color>
@@ -48,144 +49,9 @@
     </p>
   </description>
   <releases>
-    <release version="2.7.11" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed GitHub Actions dtolnay/rust-toolchain@master failure by passing explicit required toolchain: "1.100.0" (plus clippy/rustfmt and Android/macOS targets) across all 5 release workflows</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.10" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Resolved all strict Rust 1.100 Clippy -D warnings (OpenStickyWindowPayload DTO in commands/system.rs, removed redundant into_iter() in service/media.rs, and removed needless return in service/window_pin.rs)</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.9" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed Sticky Note navigation isolation: clicking Open on full map, #tags, or Open in Xmemos now routes cleanly to the main Xmemos window via system_focus_main_route + xmemos:navigate-main instead of hijacking the Sticky Note window, disabled global navigation hotkeys inside Sticky Notes, and added an inline expandable comments drawer inside Sticky Notes</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.8" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Restored pinned tauri-build = "2.7.6" in src-tauri/Cargo.toml to match Cargo.lock cleanly</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.7" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Removed unused std::process::Command import in src-tauri/src/service/window_pin.rs for zero-warning Rust builds under -D warnings</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.6" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed Sticky Note Always on Top on GNU/Linux Wayland (KDE Plasma 5/6 KWin via org.kde.KWin /Scripting D-Bus keepAbove + Hyprland via hyprctl pin) alongside native Windows HWND_TOPMOST, macOS NSFloatingWindowLevel, and Linux X11 _NET_WM_STATE_ABOVE</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.5" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed Sticky Note Always on Top toggle reverting immediately to disabled on GNU/Linux (X11/KDE/GNOME) caused by synchronous is_always_on_top() readback returning stale false before the async window manager state update completed</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.4" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Prevented Desktop Sticky Note windows from snap-maximizing or quick-tiling to full screen when dragged against top/side screen edges on KDE Plasma (KWin), GNOME, and Windows via maximizable(false), max_inner_size(720, 860), drag-only header handling, and an automatic unmaximize safeguard</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.3" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Upgraded Sticky Notes to render full rich memo media (AttachmentGrid images/videos/files + ImageLightbox), interactive Location mini-map previews (MemoLocationPreview + LocationPreviewPopover), linked memos, reactions, comment counts, visibility icons, and pin corner fold</li>
-          <li>Added dedicated cross-OS Always on Top toggle button backed by native Rust system_set_sticky_always_on_top with post-show WM sync across GNU/Linux, Windows 10/11, and macOS</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.2" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed memo_update payload bug (missing field id) when saving quick edits inside Sticky Note windows</li>
-          <li>Eliminated black startup flash on Desktop Sticky Note windows via native theme-matched background_color + double-rAF zero-flash reveal, and aligned Desktop/Android Sticky Note themes with Konsta UI macOS 2026 Liquid Glass &amp; iOS Light/Dark aesthetics with 6 high-contrast palettes</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.1" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Upgraded Android &amp; Desktop Memo Shortcuts to interactive MS Sticky Notes style: resizable zero-polling Android Home-Screen AppWidgetProvider (XmemosMemoWidgetProvider) and lightweight RAM-capped floating Desktop Sticky Note windows (/sticky/:uid) with free drag/resize, color themes, Always-on-Top, interactive checkboxes, and inline quick edit</li>
-          <li>Fixed unused PathBuf import compiler warning in desktop_shortcut.rs on GNU/Linux</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.7.0" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Added native Cross-OS Memo Shortcuts: pin any memo directly to the Android Home Screen (ShortcutManagerCompat adaptive Liquid Glass widget-style icon + dynamic long-press shortcuts) or to GNU/Linux (.desktop), Windows 10/11 (.lnk), and macOS (.app launcher) Desktops with cold/warm deep-link routing to /memo/:uid</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.6" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Added re-type Confirm Password input with live length/mismatch validation and full en/id/es localization on Sign Up and Host Setup (/auth) to prevent accidental password typos</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.5" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Redesigned PNG Export Share Card renderer (share-card.ts &amp; share-card-markdown.ts) for 1:1 visual parity with in-app MemoCard across Light and Dark Liquid Glass themes, including rich Markdown formatting, attachments, location/relations metadata, reactions, and a minimal Xmemos emblem without "Offline Memos" text</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.4" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Fixed 6-digit PIN form validation bug where Svelte interpolated pattern="[0-9]{6}" into "[0-9]6" causing false "Match the requested format" errors on Settings and PinLockOverlay, and hardened Android/IME soft-keyboard digit input</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.3" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Redesigned canonical SVG application icon following Apple HIG macOS 2026 Liquid Glass standards and regenerated cross-OS icon assets (scalable SVG, PNGs, Windows ICO, macOS Retina ICNS, and Android Fastlane icon)</li>
-          <li>Replaced the SignIn/SignUp Shield icon and Desktop Sidebar badge with the unified Xmemos Liquid Glass AppIcon component</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.2" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Refactored GitHub Actions release pipeline into modular reusable workflows (release.yml orchestrator + android-release.yml, linux-release.yml, windows-release.yml, macos-release.yml) with strict explicit secret isolation</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.1" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Hardened 6-digit PIN local lock settings with Re-type confirmation input, strict numeric-only 6-digit validation, cold-start auto-lock, and Lock Now control</li>
-        </ul>
-      </description>
-    </release>
-    <release version="2.6.0" date="2026-11-25">
-      <description>
-        <ul>
-          <li>Added multi-platform offline desktop releases for GNU/Linux (AppImage &amp; Flatpak), Windows 10/11 (Offline Installer &amp; Portable), and macOS</li>
-          <li>Added native OS File Manager Save &amp; Open dialogs for static memo file exports and database backups on Desktop</li>
-          <li>Added compile-time adaptive Android vs Desktop feature separation</li>
-        </ul>
-      </description>
+    <!-- Auto-synced from package.json and CHANGELOG.md via `pnpm version:sync` -->
+    <release version="2.7.16" date="2026-11-25">
+      <url type="details">https://github.com/xmemos/xmemos/blob/main/CHANGELOG.md</url>
     </release>
   </releases>
 </component>

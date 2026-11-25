@@ -5,6 +5,41 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.16] - 2026-11-25
+
+### Fixed
+- **macOS Unsigned/Ad-Hoc DMG Bundling CI Fix (`.github/workflows/macos-release.yml`)**:
+  - Unset empty `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` environment variables before invoking `pnpm tauri build` so GitHub Actions does not pass empty strings that trigger `security import -f pkcs12` (`SecKeychainItemImport: Unable to decode the provided data`) when Apple Developer signing secrets are not configured, while preserving automatic full signing/notarization once those secrets are added.
+
+## [2.7.15] - 2026-11-25
+
+### Fixed
+- **Zero-Warning macOS Build (`plugins/tauri-plugin-xmemos-storage/src/desktop_shortcut.rs`)**:
+  - Gated `preview` sanitization behind `#[cfg(not(target_os = "macos"))]` (resolving `unused_variables` warning on `aarch64`/`x86_64` macOS builds) and collapsed the nested `src_icns` check for strict Clippy compliance.
+
+## [2.7.14] - 2026-11-25
+
+### Fixed
+- **Android Mobile Rust Compilation (`src-tauri/src/commands/system.rs`)**:
+  - Gated desktop-only `window_pin` module import and `main_win.unminimize()` behind `#[cfg(desktop)]`, and fixed `E0505` borrow-then-move of `payload` in the `#[cfg(not(desktop))]` branch of `system_open_sticky_memo_window` so `aarch64`/`armv7`/`x86_64` Android builds compile cleanly with zero warnings.
+- **GNU/Linux Flatpak CI SDK Discovery (`.github/workflows/linux-release.yml`)**:
+  - Replaced sandboxed `flatpak run org.flatpak.Builder` (which failed with `Unable to find sdk org.gnome.Sdk version 51` on headless GitHub Actions runners due to `flatpak-spawn --host` D-Bus/user-installation isolation) with native `flatpak-builder` (`apt-get install flatpak-builder elfutils`) plus `--disable-rofiles-fuse` and `kernel.apparmor_restrict_unprivileged_userns=0` for Ubuntu 24.04 compatibility.
+- **Zero-Warning Windows Build (`plugins/tauri-plugin-xmemos-storage/src/desktop_shortcut.rs`)**:
+  - Restricted `use std::path::PathBuf;` to `#[cfg(target_os = "macos")]` so Windows compiles with zero warnings.
+
+## [2.7.13] - 2026-11-25
+
+### Fixed
+- **GNU/Linux AppImage Container CI Fix (`.github/workflows/linux-release.yml`)**:
+  - Fixed `Error: spawn npm ENOENT` during `pnpm/action-setup@v6` inside the bare `ubuntu:22.04` AppImage build container (`x86_64` and `aarch64`) by running `actions/setup-node@v7` before `pnpm/action-setup@v6` (with native `cache: true`), ensuring `npm` is on `PATH` for `pnpm/action-setup@v6`'s `npm ci` bootstrap.
+
+## [2.7.12] - 2026-11-25
+
+### Changed & Improved
+- **Single-Source-of-Truth Changelog & Automated Flatpak AppStream Metadata (`packaging/flatpak/org.xmemos.app.metainfo.xml`, `scripts/sync-version.ts`, `docs/ai/TASK_PLAYBOOK.md`)**:
+  - Removed duplicated manual changelog `<description>` blocks from `packaging/flatpak/org.xmemos.app.metainfo.xml` and replaced them with a clean, AppStream 1.2-compliant `<release version="2.7.12" date="2026-11-25">` entry referencing `CHANGELOG.md` via `<url type="details">`.
+  - Upgraded `scripts/sync-version.ts` (`pnpm version:sync` & `pnpm version:check`) to automatically read the release date from `CHANGELOG.md` and keep `packaging/flatpak/org.xmemos.app.metainfo.xml` and the About page fallback version in sync with `package.json`, eliminating double editing.
+
 ## [2.7.11] - 2026-11-25
 
 ### Fixed

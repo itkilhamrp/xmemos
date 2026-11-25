@@ -28,6 +28,7 @@ interface TauriConf {
 	version: string;
 }
 
+const CHANGELOG_DETAILS_URL = 'https://github.com/xmemos/xmemos/blob/main/CHANGELOG.md';
 const rootDir = process.cwd();
 const mode = process.argv.includes('--sync') ? 'sync' : 'check';
 
@@ -51,15 +52,54 @@ export function computeVersionCode(version: string): number {
 	return major * 1_000_000 + minor * 1_000 + patch;
 }
 
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function resolveReleaseDateFromChangelog(changelogPath: string, appVersion: string): string {
+	if (existsSync(changelogPath)) {
+		const changelog = readFileSync(changelogPath, 'utf8');
+		const exactPattern = new RegExp(
+			`^##\\s+\\[${escapeRegExp(appVersion)}\\]\\s+-\\s+(\\d{4}-\\d{2}-\\d{2})`,
+			'm'
+		);
+		const exactMatch = exactPattern.exec(changelog);
+		if (exactMatch?.[1]) {
+			return exactMatch[1];
+		}
+
+		const latestMatch = /^##\s+\[\d+\.\d+\.\d+[^\]]*\]\s+-\s+(\d{4}-\d{2}-\d{2})/m.exec(changelog);
+		if (latestMatch?.[1]) {
+			return latestMatch[1];
+		}
+	}
+	return new Date().toISOString().slice(0, 10);
+}
+
+function buildExpectedMetainfoReleasesBlock(appVersion: string, releaseDate: string): string {
+	return [
+		'  <releases>',
+		'    <!-- Auto-synced from package.json and CHANGELOG.md via `pnpm version:sync` -->',
+		`    <release version="${appVersion}" date="${releaseDate}">`,
+		`      <url type="details">${CHANGELOG_DETAILS_URL}</url>`,
+		'    </release>',
+		'  </releases>'
+	].join('\n');
+}
+
 function run(): void {
 	const pkgPath = resolve(rootDir, 'package.json');
 	const tauriConfPath = resolve(rootDir, 'src-tauri/tauri.conf.json');
 	const cargoTomlPath = resolve(rootDir, 'src-tauri/Cargo.toml');
 	const gradlePropsPath = resolve(rootDir, 'src-tauri/gen/android/app/tauri.properties');
+	const changelogPath = resolve(rootDir, 'CHANGELOG.md');
+	const metainfoPath = resolve(rootDir, 'packaging/flatpak/org.xmemos.app.metainfo.xml');
+	const aboutPagePath = resolve(rootDir, 'src/routes/settings/about/+page.svelte');
 
 	const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as PackageJson;
 	const appVersion = pkg.version;
 	const versionCode = computeVersionCode(appVersion);
+	const releaseDate = resolveReleaseDateFromChangelog(changelogPath, appVersion);
 	const errors: string[] = [];
 
 	// 1. Validate src-tauri/tauri.conf.json points to ../package.json
@@ -106,12 +146,59 @@ function run(): void {
 		}
 	}
 
+	// 4. Validate or sync Flatpak AppStream metainfo.xml <releases> from package.json + CHANGELOG.md
+	if (existsSync(metainfoPath)) {
+		const metainfoContent = readFileSync(metainfoPath, 'utf8');
+		const releasesRegex = /[ \t]*<releases>[\s\S]*?<\/releases>/;
+		const releasesMatch = releasesRegex.exec(metainfoContent);
+		const expectedBlock = buildExpectedMetainfoReleasesBlock(appVersion, releaseDate);
+
+		if (!releasesMatch) {
+			errors.push('Could not find <releases> block in packaging/flatpak/org.xmemos.app.metainfo.xml.');
+		} else if (releasesMatch[0] !== expectedBlock) {
+			if (mode === 'sync') {
+				const updated = metainfoContent.replace(releasesRegex, expectedBlock);
+				writeFileSync(metainfoPath, updated, 'utf8');
+				console.log(
+					`Synced packaging/flatpak/org.xmemos.app.metainfo.xml -> ${appVersion} (${releaseDate})`
+				);
+			} else {
+				errors.push(
+					`packaging/flatpak/org.xmemos.app.metainfo.xml <releases> is out of sync with package.json "${appVersion}" (${releaseDate}) or contains manual changelog text. Run "pnpm version:sync".`
+				);
+			}
+		}
+	}
+
+	// 5. Validate or sync About page browser-preview fallback version
+	if (existsSync(aboutPagePath)) {
+		const aboutContent = readFileSync(aboutPagePath, 'utf8');
+		const aboutVersionRegex = /info\s*\?\s*`v\$\{info\.appVersion\}`\s*:\s*'v([^']+)'/;
+		const aboutMatch = aboutVersionRegex.exec(aboutContent);
+		if (aboutMatch && aboutMatch[1] !== appVersion) {
+			if (mode === 'sync') {
+				const updated = aboutContent.replace(
+					aboutVersionRegex,
+					`info ? \`v\${info.appVersion}\` : 'v${appVersion}'`
+				);
+				writeFileSync(aboutPagePath, updated, 'utf8');
+				console.log(`Synced src/routes/settings/about/+page.svelte fallback -> v${appVersion}`);
+			} else {
+				errors.push(
+					`src/routes/settings/about/+page.svelte fallback "v${aboutMatch[1]}" != package.json "v${appVersion}". Run "pnpm version:sync".`
+				);
+			}
+		}
+	}
+
 	if (errors.length > 0) {
 		console.error('Version check failed:\n' + errors.map((e) => `  - ${e}`).join('\n'));
 		process.exit(1);
 	}
 
-	console.log(`Version check OK: v${appVersion} (Android versionCode=${versionCode})`);
+	console.log(
+		`Version check OK: v${appVersion} (${releaseDate}, Android versionCode=${versionCode})`
+	);
 }
 
 run();

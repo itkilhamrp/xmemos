@@ -108,6 +108,13 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Unset empty Apple signing/notarization env vars so Tauri falls back cleanly to ad-hoc signing
+          [ -n "${APPLE_CERTIFICATE:-}" ] || unset APPLE_CERTIFICATE
+          [ -n "${APPLE_CERTIFICATE_PASSWORD:-}" ] || unset APPLE_CERTIFICATE_PASSWORD
+          [ -n "${APPLE_SIGNING_IDENTITY:-}" ] || unset APPLE_SIGNING_IDENTITY
+          [ -n "${APPLE_ID:-}" ] || unset APPLE_ID
+          [ -n "${APPLE_PASSWORD:-}" ] || unset APPLE_PASSWORD
+          [ -n "${APPLE_TEAM_ID:-}" ] || unset APPLE_TEAM_ID
           pnpm build
           pnpm tauri build --target "${{ matrix.rust_target }}" --bundles dmg
 

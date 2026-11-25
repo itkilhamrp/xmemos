@@ -22,7 +22,7 @@
 
 use std::fs;
 use std::path::Path;
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager, Runtime};
@@ -120,6 +120,7 @@ pub fn create_desktop_memo_shortcut<R: Runtime>(
     }
 
     let title = sanitize_label(&req.title, 48, "Xmemos Memo");
+    #[cfg(not(target_os = "macos"))]
     let preview = sanitize_label(&req.preview, 120, "Open memo in Xmemos");
     let file_stem = sanitize_filename(&title, &req.memo_uid);
 
@@ -370,10 +371,8 @@ fn create_macos_app_shortcut(
     let mut has_icns = false;
     if let Some(ref bundle) = app_bundle {
         let src_icns = bundle.join("Contents").join("Resources").join("icon.icns");
-        if src_icns.exists() {
-            if fs::copy(&src_icns, resources_dir.join("AppIcon.icns")).is_ok() {
-                has_icns = true;
-            }
+        if src_icns.exists() && fs::copy(&src_icns, resources_dir.join("AppIcon.icns")).is_ok() {
+            has_icns = true;
         }
     }
 
