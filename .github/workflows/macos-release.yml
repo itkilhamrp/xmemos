@@ -49,16 +49,10 @@ permissions:
 
 jobs:
   build-macos:
-    name: macOS DMG (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            rust_target: aarch64-apple-darwin
-          - arch: x64
-            rust_target: x86_64-apple-darwin
-    runs-on: macos-15
+    name: macOS DMG (arm64 & x64)
+    # Use a single macos-15-intel runner (4-core x86_64 pool, separate from the congested
+    # macOS arm64 pool) to build both Apple Silicon (aarch64) and Intel (x86_64) DMGs reliably.
+    runs-on: macos-15-intel
     env:
       CARGO_INCREMENTAL: '0'
       XMEMOS_TARGET_PLATFORM: 'desktop'
@@ -84,22 +78,22 @@ jobs:
           node-version-file: '.node-version'
           cache: 'pnpm'
 
-      - name: Setup Rust toolchain & macOS target (${{ matrix.rust_target }})
+      - name: Setup Rust toolchain & macOS targets (arm64 + x64)
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: '1.100.0'
-          targets: ${{ matrix.rust_target }}
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'src-tauri -> target'
-          prefix-key: 'macos-${{ matrix.arch }}'
+          prefix-key: 'macos-dual'
 
       - name: Install frontend dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Build Desktop-adaptive frontend & macOS DMG (${{ matrix.arch }})
+      - name: Build Desktop-adaptive frontend & macOS DMGs (arm64 & x64)
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -115,24 +109,34 @@ jobs:
           [ -n "${APPLE_ID:-}" ] || unset APPLE_ID
           [ -n "${APPLE_PASSWORD:-}" ] || unset APPLE_PASSWORD
           [ -n "${APPLE_TEAM_ID:-}" ] || unset APPLE_TEAM_ID
-          pnpm build
-          pnpm tauri build --target "${{ matrix.rust_target }}" --bundles dmg
 
-      - name: Stage macOS DMG artifact
+          pnpm build
+          pnpm tauri build --target aarch64-apple-darwin --bundles dmg
+          pnpm tauri build --target x86_64-apple-darwin --bundles dmg
+
+      - name: Stage macOS DMG artifacts (arm64 & x64)
         run: |
           mkdir -p dist-release
-          DMG_FILE="$(find "src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
-          if [ -z "${DMG_FILE}" ]; then
-            echo "ERROR: No macOS DMG produced for ${{ matrix.arch }}." >&2
+
+          ARM_DMG="$(find "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+          if [ -z "${ARM_DMG}" ]; then
+            echo "ERROR: No macOS arm64 DMG produced." >&2
             exit 1
           fi
-          DEST="dist-release/Xmemos-v${APP_VERSION}-macos-${{ matrix.arch }}.dmg"
-          cp "${DMG_FILE}" "${DEST}"
-          ls -lh "${DEST}"
+          cp "${ARM_DMG}" "dist-release/Xmemos-v${APP_VERSION}-macos-arm64.dmg"
 
-      - name: Upload macOS artifact
+          X64_DMG="$(find "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+          if [ -z "${X64_DMG}" ]; then
+            echo "ERROR: No macOS x64 DMG produced." >&2
+            exit 1
+          fi
+          cp "${X64_DMG}" "dist-release/Xmemos-v${APP_VERSION}-macos-x64.dmg"
+
+          ls -lh dist-release/
+
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: xmemos-macos-${{ matrix.arch }}
+          name: xmemos-macos
           path: dist-release/*
           if-no-files-found: error

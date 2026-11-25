@@ -5,6 +5,12 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.18] - 2026-11-25
+
+### Fixed
+- **macOS Runner Pool Capacity Resilience (`.github/workflows/macos-release.yml`)**:
+  - Consolidated the dual parallel `macos-15` (ARM64) matrix jobs into a single standard `macos-15-intel` runner building both `aarch64-apple-darwin` (`arm64`) and `x86_64-apple-darwin` (`x64`) DMGs sequentially, bypassing GitHub Actions' macOS ARM64 runner pool capacity timeouts (`The job was not acquired by Runner of type hosted even after multiple attempts`).
+
 ## [2.7.17] - 2026-11-25
 
 ### Improved
