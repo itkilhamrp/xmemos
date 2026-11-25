@@ -1,0 +1,272 @@
+# Copyright (C) 2026 Xmemos Contributors
+#
+# This file is part of Xmemos.
+#
+# Xmemos is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Xmemos is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Xmemos. If not, see https://www.gnu.org/licenses/.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Reusable — Android APK Release
+
+on:
+  workflow_call:
+    inputs:
+      app_version:
+        description: 'Resolved application SemVer'
+        required: true
+        type: string
+      source_date_epoch:
+        description: 'Pinned SOURCE_DATE_EPOCH timestamp'
+        required: true
+        type: string
+      target_abis:
+        description: 'Android ABIs to build (all, arm64-v8a, armeabi-v7a, x86_64, universal)'
+        required: true
+        type: string
+      verify_reproducibility:
+        description: 'Run a second clean build pass and assert 1:1 identical SHA-256'
+        required: true
+        type: boolean
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Android APK (Deterministic Reproducible)
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: '0'
+      XMEMOS_TARGET_PLATFORM: 'android'
+      SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
+      APP_VERSION: ${{ inputs.app_version }}
+      ANDROID_NDK_VERSION: '27.2.12479018'
+      ANDROID_BUILD_TOOLS_VERSION: '35.0.0'
+      ANDROID_PLATFORM_VERSION: 'android-36'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Export deterministic Rust flags
+        run: |
+          echo "RUSTFLAGS=--remap-path-prefix=${HOME}=/home --remap-path-prefix=${PWD}=/workspace -C debuginfo=0" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Setup Rust toolchain (pinned rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@master
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          prefix-key: 'android'
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >
+            platform-tools
+            platforms;android-36
+            build-tools;35.0.0
+            ndk;27.2.12479018
+
+      - name: Configure Android environment variables
+        run: |
+          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "${ANDROID_SDK_ROOT}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Setup Gradle caching (open-source basic provider)
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Install frontend dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Android-adaptive frontend bundle
+        run: pnpm build
+
+      - name: Initialize Android project & patch deterministic Gradle settings
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            pnpm tauri android init --ci
+          fi
+          pnpm version:sync
+          cat << 'GRADLE_EOF' >> src-tauri/gen/android/app/build.gradle.kts
+
+          // Xmemos deterministic reproducible APK packaging rules
+          android {
+              dependenciesInfo {
+                  includeInApk = false
+                  includeInBundle = false
+              }
+              buildTypes {
+                  getByName("release") {
+                      isMinifyEnabled = true
+                      isShrinkResources = true
+                  }
+              }
+          }
+          configurations.all {
+              exclude(group = "com.google.android.gms")
+              exclude(group = "com.google.firebase")
+              exclude(group = "com.google.android.play")
+          }
+          tasks.withType<AbstractArchiveTask>().configureEach {
+              isPreserveFileTimestamps = false
+              isReproducibleFileOrder = true
+          }
+          GRADLE_EOF
+
+      - name: Decode Android signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/release.keystore"
+            echo "HAS_KEYSTORE=true" >> "$GITHUB_ENV"
+          else
+            keytool -genkeypair -v -keystore "${RUNNER_TEMP}/release.keystore" \
+              -alias xmemos-ephemeral -keyalg RSA -keysize 2048 -validity 365 \
+              -storepass xmemos-temp -keypass xmemos-temp \
+              -dname "CN=Xmemos CI, O=Xmemos, C=US"
+            echo "HAS_KEYSTORE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build, zipalign, and deterministically sign Android APKs
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p dist-release
+          SIGN_PASS="${ANDROID_KEYSTORE_PASSWORD:-xmemos-temp}"
+          SIGN_ALIAS="${ANDROID_KEY_ALIAS:-xmemos-ephemeral}"
+          SIGN_KEY_PASS="${ANDROID_KEY_PASSWORD:-xmemos-temp}"
+
+          build_abi() {
+            local abi_name="$1"
+            local tauri_target="$2"
+            if [ "${tauri_target}" = "universal" ]; then
+              pnpm tauri android build --apk
+            else
+              pnpm tauri android build --apk --target "${tauri_target}"
+            fi
+
+            local raw_apk
+            raw_apk="$(find src-tauri/gen/android/app/build/outputs/apk -type f \( -name '*release-unsigned.apk' -o -name '*release.apk' \) | sort | head -n 1)"
+            if [ -z "${raw_apk}" ]; then
+              echo "ERROR: No release APK found for ${abi_name}" >&2
+              exit 1
+            fi
+            local aligned_apk="${RUNNER_TEMP}/aligned-${abi_name}.apk"
+            local final_apk="dist-release/Xmemos-v${APP_VERSION}-android-${abi_name}-release.apk"
+
+            zipalign -p -f -v 4 "${raw_apk}" "${aligned_apk}"
+            apksigner sign \
+              --ks "${RUNNER_TEMP}/release.keystore" \
+              --ks-key-alias "${SIGN_ALIAS}" \
+              --ks-pass "pass:${SIGN_PASS}" \
+              --key-pass "pass:${SIGN_KEY_PASS}" \
+              --v1-signing-enabled false \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --out "${final_apk}" \
+              "${aligned_apk}"
+
+            apksigner verify --verbose --print-certs "${final_apk}" > "dist-release/Xmemos-v${APP_VERSION}-SIGNING-CERT.txt"
+          }
+
+          case "${{ inputs.target_abis }}" in
+            all)
+              build_abi "arm64-v8a" "aarch64"
+              build_abi "armeabi-v7a" "armv7"
+              build_abi "x86_64" "x86_64"
+              build_abi "universal" "universal"
+              ;;
+            arm64-v8a) build_abi "arm64-v8a" "aarch64" ;;
+            armeabi-v7a) build_abi "armeabi-v7a" "armv7" ;;
+            x86_64) build_abi "x86_64" "x86_64" ;;
+            universal) build_abi "universal" "universal" ;;
+            *)
+              echo "ERROR: Unsupported target_abis value: ${{ inputs.target_abis }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Verify 1:1 reproducibility (optional second clean pass)
+        if: inputs.verify_reproducibility && (inputs.target_abis == 'all' || inputs.target_abis == 'arm64-v8a')
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          PASS1_APK="dist-release/Xmemos-v${APP_VERSION}-android-arm64-v8a-release.apk"
+          HASH1="$(sha256sum "${PASS1_APK}" | awk '{print $1}')"
+          rm -rf build src-tauri/target/aarch64-linux-android/release src-tauri/gen/android/app/build
+          pnpm build
+          pnpm tauri android build --apk --target aarch64
+          RAW2="$(find src-tauri/gen/android/app/build/outputs/apk -type f \( -name '*release-unsigned.apk' -o -name '*release.apk' \) | sort | head -n 1)"
+          zipalign -p -f -v 4 "${RAW2}" "${RUNNER_TEMP}/aligned-pass2.apk"
+          apksigner sign \
+            --ks "${RUNNER_TEMP}/release.keystore" \
+            --ks-key-alias "${ANDROID_KEY_ALIAS:-xmemos-ephemeral}" \
+            --ks-pass "pass:${ANDROID_KEYSTORE_PASSWORD:-xmemos-temp}" \
+            --key-pass "pass:${ANDROID_KEY_PASSWORD:-xmemos-temp}" \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "${RUNNER_TEMP}/pass2.apk" \
+            "${RUNNER_TEMP}/aligned-pass2.apk"
+          HASH2="$(sha256sum "${RUNNER_TEMP}/pass2.apk" | awk '{print $1}')"
+          echo "Pass 1 SHA-256: ${HASH1}"
+          echo "Pass 2 SHA-256: ${HASH2}"
+          if [ "${HASH1}" != "${HASH2}" ]; then
+            echo "ERROR: Android APK reproducibility verification FAILED!" >&2
+            exit 1
+          fi
+          echo "SUCCESS: 1:1 identical deterministic APK verified!"
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmemos-android
+          path: dist-release/*
+          if-no-files-found: error

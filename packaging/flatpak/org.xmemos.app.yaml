@@ -1,0 +1,58 @@
+# Copyright (C) 2026 Xmemos Contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Official Tauri v2 Flatpak manifest (GNOME 51 runtime + WebKitGTK 4.1)
+# Strictly offline sandbox: no --share=network, no --filesystem=host;
+# file Save/Open dialogs route securely via xdg-desktop-portal (GtkFileChooserNative).
+
+id: org.xmemos.app
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: xmemos
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  - --socket=pulseaudio
+modules:
+  - name: xmemos
+    buildsystem: simple
+    sources:
+      - type: file
+        path: xmemos.deb
+      - type: file
+        path: org.xmemos.app.metainfo.xml
+      - type: file
+        path: org.xmemos.app.desktop
+      - type: file
+        path: org.xmemos.app.png
+      - type: file
+        path: org.xmemos.app.svg
+    build-commands:
+      - set -euo pipefail
+      - mkdir -p deb-extract
+      - ar -x xmemos.deb --output deb-extract
+      - |
+        if [ -f deb-extract/data.tar.zst ]; then
+          tar -C deb-extract --zstd -xf deb-extract/data.tar.zst
+        elif [ -f deb-extract/data.tar.xz ]; then
+          tar -C deb-extract -xJf deb-extract/data.tar.xz
+        else
+          tar -C deb-extract -xzf deb-extract/data.tar.gz
+        fi
+      - install -Dm755 deb-extract/usr/bin/xmemos /app/bin/xmemos
+      - install -Dm644 org.xmemos.app.desktop /app/share/applications/org.xmemos.app.desktop
+      - install -Dm644 org.xmemos.app.metainfo.xml /app/share/metainfo/org.xmemos.app.metainfo.xml
+      - install -Dm644 org.xmemos.app.png /app/share/icons/hicolor/512x512/apps/org.xmemos.app.png
+      - install -Dm644 org.xmemos.app.svg /app/share/icons/hicolor/scalable/apps/org.xmemos.app.svg
+      - |
+        if [ -f deb-extract/usr/share/icons/hicolor/32x32/apps/xmemos.png ]; then
+          install -Dm644 deb-extract/usr/share/icons/hicolor/32x32/apps/xmemos.png /app/share/icons/hicolor/32x32/apps/org.xmemos.app.png
+        fi
+        if [ -f deb-extract/usr/share/icons/hicolor/128x128/apps/xmemos.png ]; then
+          install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/xmemos.png /app/share/icons/hicolor/128x128/apps/org.xmemos.app.png
+        fi
+        if [ -f deb-extract/usr/share/icons/hicolor/256x256@2/apps/xmemos.png ]; then
+          install -Dm644 deb-extract/usr/share/icons/hicolor/256x256@2/apps/xmemos.png /app/share/icons/hicolor/256x256@2/apps/org.xmemos.app.png
+        fi

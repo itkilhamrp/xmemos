@@ -1,0 +1,15 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Default permissions for the Xmemos Android/Desktop storage and biometric bridge"
+permissions = [
+  "allow-get-media-root",
+  "allow-set-nomedia",
+  "allow-get-nomedia-status",
+  "allow-pick-document",
+  "allow-save-document",
+  "allow-authenticate-biometric",
+  "allow-check-biometric-available",
+  "allow-create-memo-shortcut",
+  "allow-consume-pending-memo-shortcut"
+]

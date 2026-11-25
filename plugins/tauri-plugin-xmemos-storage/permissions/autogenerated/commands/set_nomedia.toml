@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-nomedia"
+description = "Enables the set_nomedia command without any pre-configured scope."
+commands.allow = ["set_nomedia"]
+
+[[permission]]
+identifier = "deny-set-nomedia"
+description = "Denies the set_nomedia command without any pre-configured scope."
+commands.deny = ["set_nomedia"]

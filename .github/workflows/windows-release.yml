@@ -1,0 +1,122 @@
+# Copyright (C) 2026 Xmemos Contributors
+#
+# This file is part of Xmemos.
+#
+# Xmemos is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Xmemos is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Xmemos. If not, see https://www.gnu.org/licenses/.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Reusable — Windows 10/11 Offline Installer & Portable Release
+
+on:
+  workflow_call:
+    inputs:
+      app_version:
+        description: 'Resolved application SemVer'
+        required: true
+        type: string
+      source_date_epoch:
+        description: 'Pinned SOURCE_DATE_EPOCH timestamp'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Windows 10/11 Offline Installer & Portable (x64)
+    runs-on: windows-2025
+    env:
+      CARGO_INCREMENTAL: '0'
+      XMEMOS_TARGET_PLATFORM: 'desktop'
+      SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
+      APP_VERSION: ${{ inputs.app_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Export deterministic Rust flags
+        shell: pwsh
+        run: |
+          $homeEsc = ($env:USERPROFILE -replace '\\', '/')
+          $pwdEsc = ($PWD.Path -replace '\\', '/')
+          "RUSTFLAGS=--remap-path-prefix=$homeEsc=/home --remap-path-prefix=$pwdEsc=/workspace -C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Setup Rust toolchain (pinned rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@master
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          prefix-key: 'windows-x64'
+
+      - name: Install frontend dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Desktop-adaptive frontend & Windows Full Offline NSIS Installer
+        run: |
+          pnpm build
+          pnpm tauri build --bundles nsis
+
+      - name: Package Windows Offline Installer & deterministic Portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+
+          $nsisExe = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $nsisExe) {
+            throw "ERROR: Windows NSIS offline installer not found."
+          }
+          $installerDest = "dist-release\Xmemos-v$env:APP_VERSION-windows-x64-offline-setup.exe"
+          Copy-Item $nsisExe.FullName -Destination $installerDest -Force
+
+          $portableDir = "dist-portable\Xmemos-v$env:APP_VERSION-portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item "src-tauri\target\release\xmemos.exe" -Destination "$portableDir\Xmemos.exe" -Force
+          Copy-Item "LICENSE" -Destination "$portableDir\LICENSE" -Force
+          Set-Content -Path "$portableDir\portable.flag" -Value "Xmemos Portable Mode: stores db/, media/, and cache/ inside ./data/." -Encoding utf8
+          @"
+          Xmemos v$env:APP_VERSION - Windows 10/11 Portable Edition
+          ==========================================================
+
+          - Run Xmemos.exe directly without installation.
+          - Because portable.flag is present beside Xmemos.exe, all local databases,
+            media attachments, and caches are stored self-contained inside ./data/.
+          - Requires Microsoft Edge WebView2 Runtime (pre-installed on Windows 11 and
+            updated Windows 10). For air-gapped Windows 10 PCs without WebView2, use
+            Xmemos-v$env:APP_VERSION-windows-x64-offline-setup.exe instead.
+          "@ | Set-Content -Path "$portableDir\README-PORTABLE.txt" -Encoding utf8
+
+          python scripts/package-windows-portable.py
+          Get-ChildItem dist-release
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmemos-windows-x64
+          path: dist-release/*
+          if-no-files-found: error

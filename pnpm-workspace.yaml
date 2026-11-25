@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@sveltejs/vite-plugin-svelte@7.3.2'
+  - marked@18.3.0

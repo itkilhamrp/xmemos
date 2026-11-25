@@ -1,0 +1,8 @@
+Xmemos is a privacy-first, 100% offline Android microblogging and knowledge-capture app with 1:1 schema, backup, and export/import compatibility with Official FOSS Memos (SQLite edition).
+
+Features:
+- 100% Offline & Multi-User: Local HOST, ADMIN, and USER accounts with bcrypt password hashes, strict PRIVATE/PROTECTED/PUBLIC visibility isolation, quick account switching, and optional 6-digit PIN + Android BiometricPrompt lock.
+- 1:1 Official Memos SQLite Compatibility: Pure memos_prod.db schema (WAL mode) with zero proprietary columns. Drop exported .db or .xmemos bundles directly into a self-hosted Memos server, or import from Memos into Xmemos.
+- WhatsApp-Style Media Storage: Stores static media cleanly in /Android/media/org.xmemos.app/assets/ via Android SAF without invasive MANAGE_EXTERNAL_STORAGE permissions, with smart adaptive WebP compression and a toggleable .nomedia switch.
+- Rich Markdown & Productivity: GFM Markdown, interactive task checkboxes, KaTeX math, syntax-highlighted code blocks, nested #tags, 365-day activity heatmap, comments, emoji reactions, FTS5 instant search, and Liquid Glass PNG share cards.
+- 100% FOSS & GMS-Free: Zero Google Mobile Services, zero Firebase, zero trackers, and reproducible builds.

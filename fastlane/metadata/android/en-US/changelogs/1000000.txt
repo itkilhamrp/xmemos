@@ -1,0 +1,6 @@
+Initial v1.0.0 release:
+- 1:1 Official Memos SQLite (memos_prod.db) WAL engine + device-local FTS5 index
+- Multi-user offline authentication, quick account switcher, PIN & BiometricPrompt lock
+- Smart adaptive WebP/PNG/JPEG media compression in /Android/media/org.xmemos.app/assets/
+- Dual-mode .db & .xmemos (ZIP + SHA-256 manifest) atomic backup and restore
+- Konsta UI iOS Liquid Glass interface (Dark & Light modes)

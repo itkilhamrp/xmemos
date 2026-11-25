@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Xmemos
+Comment=Privacy-first, 100% offline microblogging and knowledge-capture app
+Exec=xmemos
+Icon=org.xmemos.app
+Terminal=false
+Categories=Office;Utility;
+Keywords=notes;memos;markdown;sqlite;offline;
+StartupWMClass=xmemos
+StartupNotify=true

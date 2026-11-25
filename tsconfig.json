@@ -1,0 +1,28 @@
+{
+  "extends": "$app/tsconfig",
+  "include": [
+    "src",
+    "scripts",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "src/service-worker",
+    "node_modules",
+    "src-tauri",
+    "plugins"
+  ],
+  "compilerOptions": {
+    "allowJs": false,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "bundler"
+  }
+}

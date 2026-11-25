@@ -1,0 +1,49 @@
+[package]
+name = "xmemos"
+version = "2.7.10"
+description = "Privacy-first 100% offline Android microblogging app with 1:1 Official Memos SQLite compatibility"
+authors = ["Xmemos Contributors"]
+license = "AGPL-3.0-or-later"
+edition = "2021"
+rust-version = "1.90"
+
+[lib]
+name = "xmemos_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.7", features = ["protocol-asset"] }
+tauri-plugin-opener = "2.7.3"
+tauri-plugin-xmemos-storage = { path = "../plugins/tauri-plugin-xmemos-storage" }
+rusqlite = { version = "0.43.0", features = ["bundled", "backup"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+bcrypt = "0.19.3"
+zip = { version = "9.8.2", default-features = false, features = ["deflate"] }
+sha2 = "0.11.1"
+hex = "0.4.3"
+uuid = { version = "1.29.3", features = ["v4"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+regex = "1.13.2"
+base64 = "0.23.1"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+mime_guess = "2.0.5"
+log = "0.4.35"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false

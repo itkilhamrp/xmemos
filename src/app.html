@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="color-scheme" content="light dark" />
+		<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+		<title>Xmemos</title>
+		<script>
+			(function () {
+				try {
+					var mode = localStorage.getItem('xmemos.theme') || 'system';
+					var glass = localStorage.getItem('xmemos.glass') || 'liquid';
+					var loc = localStorage.getItem('xmemos.locale');
+					if (loc === 'en' || loc === 'id' || loc === 'es') document.documentElement.lang = loc;
+					var prefersDark =
+						window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+					var isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+					var root = document.documentElement;
+					root.classList.toggle('dark', isDark);
+					root.dataset.glass = glass;
+					root.style.colorScheme = isDark ? 'dark' : 'light';
+				} catch (e) {
+					// Ignore storage access restrictions
+				}
+			})();
+		</script>
+		<style>
+			html,
+			body,
+			.k-ios-page {
+				margin: 0;
+				background-color: #f2f2f7;
+				color: #000000;
+			}
+			html.dark,
+			html.dark body,
+			html.dark .k-ios-page {
+				background-color: #000000;
+				color: #ffffff;
+			}
+		</style>
+		%sveltekit.head%
+	</head>
+	<body class="antialiased selection:bg-sky-500/30">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

@@ -1,0 +1,130 @@
+# Copyright (C) 2026 Xmemos Contributors
+#
+# This file is part of Xmemos.
+#
+# Xmemos is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Xmemos is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Xmemos. If not, see https://www.gnu.org/licenses/.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Reusable — macOS DMG Release
+
+on:
+  workflow_call:
+    inputs:
+      app_version:
+        description: 'Resolved application SemVer'
+        required: true
+        type: string
+      source_date_epoch:
+        description: 'Pinned SOURCE_DATE_EPOCH timestamp'
+        required: true
+        type: string
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    name: macOS DMG (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            rust_target: aarch64-apple-darwin
+          - arch: x64
+            rust_target: x86_64-apple-darwin
+    runs-on: macos-15
+    env:
+      CARGO_INCREMENTAL: '0'
+      XMEMOS_TARGET_PLATFORM: 'desktop'
+      SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
+      APP_VERSION: ${{ inputs.app_version }}
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Export deterministic Rust flags
+        run: |
+          echo "RUSTFLAGS=--remap-path-prefix=${HOME}=/home --remap-path-prefix=${PWD}=/workspace -C debuginfo=0" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Setup Rust toolchain & macOS target (${{ matrix.rust_target }})
+        uses: dtolnay/rust-toolchain@master
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          prefix-key: 'macos-${{ matrix.arch }}'
+
+      - name: Install frontend dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Desktop-adaptive frontend & macOS DMG (${{ matrix.arch }})
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          pnpm build
+          pnpm tauri build --target "${{ matrix.rust_target }}" --bundles dmg
+
+      - name: Stage macOS DMG artifact
+        run: |
+          mkdir -p dist-release
+          DMG_FILE="$(find "src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+          if [ -z "${DMG_FILE}" ]; then
+            echo "ERROR: No macOS DMG produced for ${{ matrix.arch }}." >&2
+            exit 1
+          fi
+          DEST="dist-release/Xmemos-v${APP_VERSION}-macos-${{ matrix.arch }}.dmg"
+          cp "${DMG_FILE}" "${DEST}"
+          ls -lh "${DEST}"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmemos-macos-${{ matrix.arch }}
+          path: dist-release/*
+          if-no-files-found: error

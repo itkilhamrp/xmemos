@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="xmemos_widget_bg">#FFFFFF</color>
+    <color name="xmemos_widget_border">#DCE3EC</color>
+    <color name="xmemos_widget_accent">#007AFF</color>
+    <color name="xmemos_widget_title">#0F172A</color>
+    <color name="xmemos_widget_body">#334155</color>
+    <color name="xmemos_widget_badge">#0066CC</color>
+</resources>

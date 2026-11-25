@@ -1,0 +1,1172 @@
+/*
+ * Copyright (C) 2026 Xmemos Contributors
+ *
+ * This file is part of Xmemos.
+ *
+ * Xmemos is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Xmemos is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Xmemos. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+@import 'tailwindcss';
+@import 'konsta/svelte/theme.css';
+@import 'katex/dist/katex.min.css';
+
+/* ==========================================================================
+   Xmemos iOS Design Tokens & WCAG AA/AAA High-Contrast Light / Dark Themes
+   ========================================================================== */
+
+:root {
+	color-scheme: light;
+	--xm-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF UI Text', system-ui, 'Helvetica Neue', sans-serif;
+	--xm-font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+
+	/* Konsta UI iOS primary tuned for >= 4.5:1 contrast on light surfaces */
+	--k-color-primary: #0066cc;
+	--k-color-ios-primary: #0066cc;
+	--k-color-ios-primary-tint: #007aff;
+	--k-color-ios-primary-shade: #004fa3;
+
+	/* Semantic foreground tokens (WCAG AAA primary, AA+ secondary/muted) */
+	--xm-text-primary: #0f172a;
+	--xm-text-secondary: #334155;
+	--xm-text-muted: #475569;
+
+	/* Accent & status foregrounds (all >= 4.5:1 on light surface) */
+	--xm-accent: #0066cc;
+	--xm-accent-btn: #0066cc;
+	--xm-accent-btn-hover: #0052a3;
+	--xm-accent-soft: rgba(0, 102, 204, 0.12);
+	--xm-accent-border: rgba(0, 102, 204, 0.28);
+	--xm-danger: #be123c;
+	--xm-danger-soft: rgba(190, 18, 60, 0.11);
+	--xm-success: #047857;
+	--xm-success-soft: rgba(4, 120, 87, 0.12);
+	--xm-warning: #b45309;
+	--xm-warning-soft: rgba(180, 83, 9, 0.12);
+
+	/* Surface & border tokens */
+	--xm-surface-subtle: rgba(15, 23, 42, 0.05);
+	--xm-surface-hover: rgba(15, 23, 42, 0.08);
+	--xm-input-bg: rgba(255, 255, 255, 0.92);
+	--xm-input-border: rgba(15, 23, 42, 0.18);
+	--xm-divider: rgba(15, 23, 42, 0.1);
+
+	/* Liquid Glass tokens (Light) */
+	--xm-glass-bg: rgba(255, 255, 255, 0.82);
+	--xm-glass-bg-elevated: rgba(255, 255, 255, 0.94);
+	--xm-glass-border: rgba(15, 23, 42, 0.1);
+	--xm-glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+	--xm-glass-shadow: 0 6px 24px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.05);
+	--xm-glass-blur: 20px;
+
+	--xm-bg-base: #f2f2f7;
+	--xm-bg-mesh:
+		radial-gradient(circle at 12% 8%, rgba(56, 189, 248, 0.14), transparent 42%),
+		radial-gradient(circle at 88% 18%, rgba(99, 102, 241, 0.1), transparent 38%),
+		radial-gradient(circle at 50% 92%, rgba(14, 165, 233, 0.08), transparent 45%),
+		#f2f2f7;
+
+	/* macOS 2026 Liquid Glass Desktop Split-View & Toolbar tokens (Light) */
+	--xm-macos-sidebar-bg: rgba(242, 244, 248, 0.76);
+	--xm-macos-toolbar-bg: rgba(248, 249, 252, 0.8);
+	--xm-macos-inspector-bg: rgba(248, 249, 252, 0.56);
+	--xm-macos-nav-hover: rgba(15, 23, 42, 0.055);
+	--xm-macos-nav-active: rgba(0, 102, 204, 0.13);
+
+	/* Focus ring */
+	--xm-focus-ring: #0066cc;
+}
+
+.dark {
+	color-scheme: dark;
+
+	/* Konsta UI iOS primary tuned for >= 5.2:1 contrast on dark surfaces */
+	--k-color-primary: #3b9eff;
+	--k-color-ios-primary: #3b9eff;
+	--k-color-ios-primary-tint: #66b3ff;
+	--k-color-ios-primary-shade: #0a84ff;
+
+	/* Semantic foreground tokens (WCAG AAA primary, AA+ secondary/muted) */
+	--xm-text-primary: #f8fafc;
+	--xm-text-secondary: #cbd5e1;
+	--xm-text-muted: #94a3b8;
+
+	/* Accent & status foregrounds (all >= 4.5:1 on dark surface) */
+	--xm-accent: #60a5fa;
+	--xm-accent-btn: #0a84ff;
+	--xm-accent-btn-hover: #0071e3;
+	--xm-accent-soft: rgba(59, 158, 255, 0.18);
+	--xm-accent-border: rgba(96, 165, 250, 0.35);
+	--xm-danger: #fb7185;
+	--xm-danger-soft: rgba(251, 113, 133, 0.16);
+	--xm-success: #34d399;
+	--xm-success-soft: rgba(52, 211, 153, 0.16);
+	--xm-warning: #fbbf24;
+	--xm-warning-soft: rgba(251, 191, 36, 0.16);
+
+	/* Surface & border tokens */
+	--xm-surface-subtle: rgba(255, 255, 255, 0.07);
+	--xm-surface-hover: rgba(255, 255, 255, 0.12);
+	--xm-input-bg: rgba(28, 28, 30, 0.92);
+	--xm-input-border: rgba(255, 255, 255, 0.18);
+	--xm-divider: rgba(255, 255, 255, 0.12);
+
+	/* Liquid Glass tokens (Dark) */
+	--xm-glass-bg: rgba(28, 28, 30, 0.8);
+	--xm-glass-bg-elevated: rgba(34, 34, 38, 0.94);
+	--xm-glass-border: rgba(255, 255, 255, 0.12);
+	--xm-glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+	--xm-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+	--xm-glass-blur: 20px;
+
+	--xm-bg-base: #000000;
+	--xm-bg-mesh:
+		radial-gradient(circle at 15% 10%, rgba(14, 165, 233, 0.14), transparent 40%),
+		radial-gradient(circle at 85% 22%, rgba(99, 102, 241, 0.12), transparent 42%),
+		radial-gradient(circle at 50% 95%, rgba(20, 184, 166, 0.08), transparent 45%),
+		#000000;
+
+	/* macOS 2026 Liquid Glass Desktop Split-View & Toolbar tokens (Dark) */
+	--xm-macos-sidebar-bg: rgba(22, 22, 26, 0.82);
+	--xm-macos-toolbar-bg: rgba(18, 18, 22, 0.84);
+	--xm-macos-inspector-bg: rgba(20, 20, 24, 0.58);
+	--xm-macos-nav-hover: rgba(255, 255, 255, 0.07);
+	--xm-macos-nav-active: rgba(59, 158, 255, 0.19);
+
+	/* Focus ring */
+	--xm-focus-ring: #60a5fa;
+}
+
+/* User-configurable glass intensity */
+[data-glass='subtle'] {
+	--xm-glass-bg: rgba(255, 255, 255, 0.92);
+	--xm-glass-bg-elevated: rgba(255, 255, 255, 0.97);
+	--xm-glass-blur: 10px;
+}
+.dark[data-glass='subtle'] {
+	--xm-glass-bg: rgba(28, 28, 30, 0.92);
+	--xm-glass-bg-elevated: rgba(36, 36, 40, 0.97);
+	--xm-glass-blur: 10px;
+}
+
+[data-glass='solid'] {
+	--xm-glass-bg: #ffffff;
+	--xm-glass-bg-elevated: #ffffff;
+	--xm-glass-border: rgba(15, 23, 42, 0.14);
+	--xm-glass-blur: 0px;
+	--xm-bg-mesh: #f2f2f7;
+	--xm-macos-sidebar-bg: #eceef3;
+	--xm-macos-toolbar-bg: #f6f7fa;
+	--xm-macos-inspector-bg: #f4f5f8;
+}
+.dark[data-glass='solid'] {
+	--xm-glass-bg: #1c1c1e;
+	--xm-glass-bg-elevated: #242426;
+	--xm-glass-border: rgba(255, 255, 255, 0.16);
+	--xm-glass-blur: 0px;
+	--xm-bg-mesh: #000000;
+	--xm-macos-sidebar-bg: #161618;
+	--xm-macos-toolbar-bg: #141416;
+	--xm-macos-inspector-bg: #141416;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	:root {
+		--xm-glass-bg: #ffffff;
+		--xm-glass-bg-elevated: #ffffff;
+		--xm-glass-blur: 0px;
+		--xm-bg-mesh: #f2f2f7;
+	}
+	.dark {
+		--xm-glass-bg: #1c1c1e;
+		--xm-glass-bg-elevated: #242426;
+		--xm-glass-blur: 0px;
+		--xm-bg-mesh: #000000;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+html,
+body {
+	font-family: var(--xm-font-sans);
+	font-size: 16px;
+	color: var(--xm-text-primary);
+	background-color: var(--xm-bg-base);
+	background-image: var(--xm-bg-mesh);
+	overscroll-behavior-y: none;
+	min-height: 100%;
+}
+
+/* Global WCAG 2.4.7 / 2.4.11 focus-visible indicator */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+	outline: 2px solid var(--xm-focus-ring);
+	outline-offset: 2px;
+}
+
+
+/* Suppress duplicate native WebKit/Chromium clear button on search inputs */
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+/* Search input inside rounded pill delegates focus ring to outer pill */
+.xm-search-input:focus,
+.xm-search-input:focus-visible {
+	outline: none !important;
+	box-shadow: none !important;
+}
+
+.tabular-nums {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Semantic high-contrast text helpers */
+.xm-text-primary {
+	color: var(--xm-text-primary);
+}
+.xm-text-secondary {
+	color: var(--xm-text-secondary);
+}
+.xm-text-muted {
+	color: var(--xm-text-muted);
+}
+.xm-text-accent {
+	color: var(--xm-accent);
+}
+.xm-text-danger {
+	color: var(--xm-danger);
+}
+.xm-text-success {
+	color: var(--xm-success);
+}
+.xm-text-warning {
+	color: var(--xm-warning);
+}
+
+/* Unified WCAG-compliant form control */
+.xm-input {
+	width: 100%;
+	border-radius: 14px;
+	border: 1px solid var(--xm-input-border);
+	background-color: var(--xm-input-bg);
+	color: var(--xm-text-primary);
+	padding: 0.625rem 0.875rem;
+	font-size: 0.9375rem;
+	line-height: 1.4;
+	transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.xm-input::placeholder {
+	color: var(--xm-text-muted);
+	opacity: 1;
+}
+.xm-input:focus {
+	outline: none;
+	border-color: var(--xm-focus-ring);
+	box-shadow: 0 0 0 3px var(--xm-accent-soft);
+}
+
+/* Liquid Glass surface utilities (GPU-composited, WCAG-safe opacity floor) */
+.glass-surface {
+	background: var(--xm-glass-bg);
+	backdrop-filter: blur(var(--xm-glass-blur)) saturate(180%);
+	-webkit-backdrop-filter: blur(var(--xm-glass-blur)) saturate(180%);
+	border: 1px solid var(--xm-glass-border);
+	box-shadow: var(--xm-glass-specular), var(--xm-glass-shadow);
+	color: var(--xm-text-primary);
+}
+
+.glass-elevated {
+	background: var(--xm-glass-bg-elevated);
+	backdrop-filter: blur(calc(var(--xm-glass-blur) * 1.15)) saturate(190%);
+	-webkit-backdrop-filter: blur(calc(var(--xm-glass-blur) * 1.15)) saturate(190%);
+	border: 1px solid var(--xm-glass-border);
+	box-shadow: var(--xm-glass-specular), var(--xm-glass-shadow);
+	color: var(--xm-text-primary);
+}
+
+.glass-pill {
+	background: var(--xm-glass-bg-elevated);
+	backdrop-filter: blur(var(--xm-glass-blur)) saturate(190%);
+	-webkit-backdrop-filter: blur(var(--xm-glass-blur)) saturate(190%);
+	border: 1px solid var(--xm-glass-border);
+	box-shadow: var(--xm-glass-specular), 0 8px 28px rgba(0, 0, 0, 0.14);
+	color: var(--xm-text-primary);
+}
+
+/* Konsta UI iOS Sheet & Dialog dark/light consistency polish */
+
+/* Crisp minimalist iOS 2026 Navbar: eliminate WebKitGTK 2px backdrop-blur halo/glow around titles */
+.k-navbar > div[class*='backdrop-blur-'] {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+.k-navbar .whitespace-nowrap {
+	text-shadow: none !important;
+	filter: none !important;
+}
+
+
+/* Lightweight iOS page fade-in (opacity-only, no transform/fill-mode so position:fixed overlays never break) */
+@keyframes xmPageEnter {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+.xm-page-enter {
+	animation: xmPageEnter 130ms ease-out;
+}
+
+/* Smooth iOS bottom Tabbar glass slider easing */
+.k-toolbar-pane > div {
+	transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.xm-sidebar-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: var(--xm-divider) transparent;
+}
+
+.k-sheet {
+	color: var(--xm-text-primary);
+}
+
+/* ==========================================================================
+   Rendered Markdown Prose Styles (Light + Dark WCAG AA/AAA)
+   ========================================================================== */
+
+.memo-prose {
+	color: var(--xm-text-primary);
+	line-height: 1.6;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+.memo-prose p {
+	margin: 0.4rem 0;
+}
+.memo-prose p:first-child {
+	margin-top: 0;
+}
+.memo-prose p:last-child {
+	margin-bottom: 0;
+}
+.memo-prose h1,
+.memo-prose h2,
+.memo-prose h3,
+.memo-prose h4 {
+	color: var(--xm-text-primary);
+	font-weight: 700;
+	margin: 0.75rem 0 0.35rem;
+	line-height: 1.3;
+}
+.memo-prose h1:first-child,
+.memo-prose h2:first-child,
+.memo-prose h3:first-child {
+	margin-top: 0;
+}
+.memo-prose h1 {
+	font-size: 1.25rem;
+}
+.memo-prose h2 {
+	font-size: 1.125rem;
+}
+.memo-prose h3 {
+	font-size: 1rem;
+}
+.memo-prose a {
+	color: var(--xm-accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	font-weight: 500;
+}
+.memo-prose hr {
+	border: 0;
+	border-top: 1px solid var(--xm-divider);
+	margin: 0.75rem 0;
+}
+.memo-prose blockquote {
+	border-left: 3px solid var(--xm-accent);
+	background: var(--xm-surface-subtle);
+	border-radius: 0 10px 10px 0;
+	padding: 0.45rem 0.75rem;
+	margin: 0.55rem 0;
+	color: var(--xm-text-secondary);
+}
+.memo-prose .xm-code-block {
+	background: #efefe9;
+	border: 1px solid rgba(15, 23, 42, 0.09);
+	border-radius: 12px;
+	margin: 0.6rem 0;
+	overflow: hidden;
+}
+.dark .memo-prose .xm-code-block {
+	background: #222326;
+	border-color: rgba(255, 255, 255, 0.08);
+}
+.memo-prose .xm-code-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.45rem 0.85rem 0.15rem;
+}
+.memo-prose .xm-code-lang {
+	font-family: var(--xm-font-mono);
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: #6e7781;
+	user-select: none;
+}
+.dark .memo-prose .xm-code-lang {
+	color: #8b949e;
+}
+.memo-prose .xm-code-copy {
+	font-family: var(--xm-font-sans);
+	font-size: 0.7rem;
+	font-weight: 600;
+	color: #57606a;
+	background: transparent;
+	border: 0;
+	border-radius: 6px;
+	padding: 0.15rem 0.45rem;
+	cursor: pointer;
+	opacity: 0.75;
+	transition: opacity 120ms ease, background-color 120ms ease;
+}
+.memo-prose .xm-code-copy:hover {
+	opacity: 1;
+	background: rgba(15, 23, 42, 0.08);
+}
+.dark .memo-prose .xm-code-copy {
+	color: #9ca3af;
+}
+.dark .memo-prose .xm-code-copy:hover {
+	color: #f3f4f6;
+	background: rgba(255, 255, 255, 0.1);
+}
+.memo-prose pre {
+	background: transparent;
+	color: #1f2328;
+	border: 0;
+	border-radius: 0;
+	padding: 0.35rem 0.9rem 0.8rem;
+	overflow-x: auto;
+	font-family: var(--xm-font-mono);
+	font-size: 0.83rem;
+	line-height: 1.58;
+	margin: 0;
+}
+.dark .memo-prose pre {
+	color: #e6edf3;
+}
+.memo-prose pre code {
+	font-family: inherit;
+	background: transparent;
+	padding: 0;
+}
+.memo-prose code:not(pre code) {
+	font-family: var(--xm-font-mono);
+	background: #efefe9;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	color: #1f2328;
+	padding: 0.08rem 0.38rem;
+	border-radius: 6px;
+	font-size: 0.86em;
+}
+.dark .memo-prose code:not(pre code) {
+	background: #2a2b2f;
+	border-color: rgba(255, 255, 255, 0.09);
+	color: #e6edf3;
+}
+.memo-prose ul,
+.memo-prose ol {
+	padding-left: 1.35rem;
+	margin: 0.4rem 0;
+}
+.memo-prose ul {
+	list-style-type: disc;
+}
+.memo-prose ol {
+	list-style-type: decimal;
+}
+.memo-prose li {
+	margin: 0.2rem 0;
+}
+.memo-prose table {
+	display: block;
+	overflow-x: auto;
+	border-collapse: collapse;
+	margin: 0.55rem 0;
+	font-size: 0.875rem;
+	width: max-content;
+	max-width: 100%;
+}
+.memo-prose th {
+	background: var(--xm-surface-subtle);
+	font-weight: 600;
+	text-align: left;
+}
+.memo-prose th,
+.memo-prose td {
+	border: 1px solid var(--xm-divider);
+	padding: 0.4rem 0.65rem;
+}
+.memo-prose img {
+	max-width: 100%;
+	border-radius: 12px;
+	margin: 0.5rem 0;
+}
+.memo-prose .xm-tag {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.08rem 0.5rem;
+	border-radius: 9999px;
+	background: var(--xm-accent-soft);
+	color: var(--xm-accent);
+	font-weight: 600;
+	font-size: 0.875em;
+	cursor: pointer;
+	text-decoration: none;
+	border: 1px solid transparent;
+	transition: background-color 120ms ease, border-color 120ms ease;
+}
+.memo-prose .xm-tag:hover {
+	border-color: var(--xm-accent-border);
+}
+.memo-prose input[type='checkbox']:not(.xm-task-checkbox) {
+	display: none !important;
+}
+.memo-prose .xm-task-item {
+	list-style: none;
+	margin-left: -1.35rem;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.55rem;
+	padding: 0.125rem 0;
+}
+.memo-prose .xm-task-checkbox {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 1.125rem;
+	height: 1.125rem;
+	margin-top: 0.2rem;
+	flex-shrink: 0;
+	border-radius: 6px;
+	border: 1.5px solid var(--xm-input-border);
+	background-color: transparent;
+	cursor: pointer;
+	display: inline-grid;
+	place-content: center;
+	transition: background-color 140ms ease, border-color 140ms ease, transform 100ms ease;
+}
+.memo-prose .xm-task-checkbox:active {
+	transform: scale(0.92);
+}
+.memo-prose .xm-task-checkbox:checked {
+	border-color: var(--xm-accent);
+	background-color: var(--xm-accent);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 0.78rem 0.78rem;
+}
+.memo-prose .xm-task-item:has(.xm-task-checkbox:checked) > .xm-task-label {
+	color: var(--xm-text-muted);
+	text-decoration: line-through;
+}
+
+/* Official Memos Light Mode PrismJS Syntax Palette (#efefe9 surface, WCAG AA+) */
+.memo-prose pre .token.comment,
+.memo-prose pre .token.prolog,
+.memo-prose pre .token.doctype,
+.memo-prose pre .token.cdata {
+	color: #6e7781;
+}
+.memo-prose pre .token.punctuation {
+	color: #57606a;
+}
+.memo-prose pre .token.keyword,
+.memo-prose pre .token.atrule,
+.memo-prose pre .token.function,
+.memo-prose pre .token.builtin,
+.memo-prose pre .token.important {
+	color: #8250df;
+}
+.memo-prose pre .token.string,
+.memo-prose pre .token.char,
+.memo-prose pre .token.attr-value,
+.memo-prose pre .token.regex {
+	color: #0a3069;
+}
+.memo-prose pre .token.number,
+.memo-prose pre .token.boolean,
+.memo-prose pre .token.constant,
+.memo-prose pre .token.property,
+.memo-prose pre .token.symbol,
+.memo-prose pre .token.variable {
+	color: #0550ae;
+}
+.memo-prose pre .token.tag,
+.memo-prose pre .token.selector,
+.memo-prose pre .token.attr-name,
+.memo-prose pre .token.inserted {
+	color: #116329;
+}
+.memo-prose pre .token.class-name,
+.memo-prose pre .token.namespace {
+	color: #953800;
+}
+.memo-prose pre .token.operator,
+.memo-prose pre .token.entity,
+.memo-prose pre .token.url {
+	color: #cf222e;
+}
+.memo-prose pre .token.deleted {
+	color: #cf222e;
+}
+
+/* Official Memos Dark Mode PrismJS Syntax Palette (#222326 surface, WCAG AA+) */
+.dark .memo-prose pre .token.comment,
+.dark .memo-prose pre .token.prolog,
+.dark .memo-prose pre .token.doctype,
+.dark .memo-prose pre .token.cdata {
+	color: #8b949e;
+}
+.dark .memo-prose pre .token.punctuation {
+	color: #9ca3af;
+}
+.dark .memo-prose pre .token.keyword,
+.dark .memo-prose pre .token.atrule,
+.dark .memo-prose pre .token.function,
+.dark .memo-prose pre .token.builtin,
+.dark .memo-prose pre .token.important {
+	color: #d2a8ff;
+}
+.dark .memo-prose pre .token.string,
+.dark .memo-prose pre .token.char,
+.dark .memo-prose pre .token.attr-value,
+.dark .memo-prose pre .token.regex {
+	color: #a5d6ff;
+}
+.dark .memo-prose pre .token.number,
+.dark .memo-prose pre .token.boolean,
+.dark .memo-prose pre .token.constant,
+.dark .memo-prose pre .token.property,
+.dark .memo-prose pre .token.symbol,
+.dark .memo-prose pre .token.variable {
+	color: #79c0ff;
+}
+.dark .memo-prose pre .token.tag,
+.dark .memo-prose pre .token.selector,
+.dark .memo-prose pre .token.attr-name,
+.dark .memo-prose pre .token.inserted {
+	color: #7ee787;
+}
+.dark .memo-prose pre .token.class-name,
+.dark .memo-prose pre .token.namespace {
+	color: #ffa657;
+}
+.dark .memo-prose pre .token.operator,
+.dark .memo-prose pre .token.entity,
+.dark .memo-prose pre .token.url {
+	color: #ff7b72;
+}
+.dark .memo-prose pre .token.deleted {
+	color: #ffa198;
+}
+
+/* Konsta UI iOS 2026 GPU-composited shimmer skeleton (zero JS overhead) */
+@keyframes xm-shimmer {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
+}
+.xm-skeleton {
+	background: linear-gradient(
+		90deg,
+		rgba(15, 23, 42, 0.06) 25%,
+		rgba(15, 23, 42, 0.12) 50%,
+		rgba(15, 23, 42, 0.06) 75%
+	);
+	background-size: 200% 100%;
+	animation: xm-shimmer 1.35s ease-in-out infinite;
+}
+.dark .xm-skeleton {
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0.07) 25%,
+		rgba(255, 255, 255, 0.14) 50%,
+		rgba(255, 255, 255, 0.07) 75%
+	);
+	background-size: 200% 100%;
+}
+
+/* Memo feed item wrapper (kept free of paint/layout containment so overlays and shadows never clip) */
+.xm-memo-card {
+	position: relative;
+}
+
+/* Full-page monthly calendar: equal viewport-fit week rows on tablet & desktop (zero outer vertical scrollbar) */
+@media (min-width: 768px) {
+	.xm-cal-grid {
+		grid-template-rows: repeat(var(--xm-cal-weeks, 5), minmax(0, 1fr));
+	}
+}
+
+/* Official Memos 2026 search keyword highlight mark */
+.xm-search-mark {
+	background-color: rgba(245, 158, 11, 0.34);
+	color: #78350f;
+	border-radius: 3px;
+	padding: 0 2px;
+	font-weight: 500;
+}
+.dark .xm-search-mark {
+	background-color: rgba(217, 119, 6, 0.38);
+	color: #fef3c7;
+}
+
+/* Official Memos 2026 OsmAnd/OpenStreetMap Map Markers & Dark Theme Adaptation */
+.xm-osm-map {
+	font-family: inherit;
+	z-index: 1;
+}
+.xm-osm-dark .leaflet-tile-pane {
+	filter: brightness(0.78) contrast(1.06) saturate(0.82);
+}
+.xm-osm-map .leaflet-control-attribution {
+	background: rgba(255, 255, 255, 0.78);
+	backdrop-filter: blur(8px);
+	font-size: 10px;
+	border-top-left-radius: 8px;
+	padding: 2px 6px;
+}
+.dark .xm-osm-map .leaflet-control-attribution {
+	background: rgba(24, 24, 27, 0.78);
+	color: rgba(255, 255, 255, 0.65);
+}
+.dark .xm-osm-map .leaflet-control-attribution a {
+	color: rgba(147, 197, 253, 0.9);
+}
+.xm-map-icon-wrapper {
+	background: transparent;
+	border: none;
+}
+.xm-map-cluster {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 9999px;
+	background: #ffffff;
+	color: #111827;
+	border: 2px solid #007aff;
+	font-size: 12px;
+	font-weight: 700;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+	transition: transform 140ms ease;
+}
+.dark .xm-map-cluster {
+	background: #1c1c1e;
+	color: #f4f4f5;
+	border-color: #60a5fa;
+}
+.xm-map-pin {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 9999px;
+	background: #007aff;
+	color: #ffffff;
+	border: 2.5px solid #ffffff;
+	font-size: 12px;
+	font-weight: 700;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+	transition: transform 140ms ease;
+}
+.xm-map-marker-active {
+	transform: scale(1.16);
+	box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.32), 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.xm-map-dropped-pin {
+	width: 20px;
+	height: 20px;
+	border-radius: 9999px;
+	background: #f59e0b;
+	border: 3px solid #ffffff;
+	box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   macOS 2026 Desktop Split-View, Liquid Glass Sidebar & Unified Toolbar
+   (Strictly applied at lg >= 1024px; zero effect on Mobile/Tablet/iPad)
+   ========================================================================== */
+
+.xm-macos-sidebar {
+	background: var(--xm-macos-sidebar-bg);
+	backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	-webkit-backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	border-right: 1px solid var(--xm-divider);
+}
+
+.xm-macos-toolbar {
+	background: var(--xm-macos-toolbar-bg);
+	backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	-webkit-backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	border-bottom: 1px solid var(--xm-divider);
+}
+
+.xm-macos-inspector {
+	background: var(--xm-macos-inspector-bg);
+	backdrop-filter: blur(calc(var(--xm-glass-blur) * 0.85)) saturate(165%);
+	-webkit-backdrop-filter: blur(calc(var(--xm-glass-blur) * 0.85)) saturate(165%);
+	border-left: 1px solid var(--xm-divider);
+}
+
+.xm-macos-nav-item {
+	display: flex;
+	width: 100%;
+	min-height: 34px;
+	align-items: center;
+	gap: 0.625rem;
+	border-radius: 10px;
+	padding: 0.375rem 0.625rem;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	line-height: 1.25;
+	color: var(--xm-text-primary);
+	transition: background-color 120ms ease, color 120ms ease;
+	cursor: pointer;
+}
+
+.xm-macos-nav-item:hover {
+	background-color: var(--xm-macos-nav-hover);
+}
+
+.xm-macos-nav-item[aria-current='page'] {
+	background-color: var(--xm-macos-nav-active);
+	color: var(--xm-accent);
+	font-weight: 600;
+}
+
+.xm-macos-toolbar-btn {
+	display: inline-flex;
+	height: 32px;
+	min-width: 32px;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
+	border-radius: 9px;
+	padding: 0 0.5rem;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	color: var(--xm-text-secondary);
+	transition: background-color 120ms ease, color 120ms ease;
+	cursor: pointer;
+}
+
+.xm-macos-toolbar-btn:hover {
+	background-color: var(--xm-macos-nav-hover);
+	color: var(--xm-text-primary);
+}
+
+.xm-macos-toolbar-btn[aria-pressed='true'] {
+	background-color: var(--xm-macos-nav-active);
+	color: var(--xm-accent);
+}
+
+.xm-map-preview-dot {
+	width: 18px;
+	height: 18px;
+	border-radius: 9999px;
+	background: #ffffff;
+	border: 3px solid rgba(15, 23, 42, 0.32);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ==========================================================================
+   Frameless Desktop Window Header & macOS 2026 Traffic-Light Controls
+   (Active only on Tauri Desktop: GNU/Linux, macOS, Windows; zero mobile cost)
+   ========================================================================== */
+
+.xm-drag-region {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.xm-desktop-strip {
+	background: var(--xm-macos-toolbar-bg);
+	backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	-webkit-backdrop-filter: blur(var(--xm-glass-blur)) saturate(185%);
+	border-bottom: 1px solid var(--xm-divider);
+}
+
+.xm-traffic-btn {
+	position: relative;
+	display: inline-flex;
+	height: 12px;
+	width: 12px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	padding: 0;
+	border: 0.5px solid transparent;
+	transition: background-color 140ms ease, border-color 140ms ease, transform 90ms ease;
+	cursor: pointer;
+}
+
+.xm-traffic-btn:active {
+	transform: scale(0.92);
+}
+
+.xm-traffic-close {
+	background-color: #ff5f57;
+	border-color: rgba(224, 68, 62, 0.72);
+	color: #4d0000;
+}
+
+.xm-traffic-minimize {
+	background-color: #febc2e;
+	border-color: rgba(216, 158, 36, 0.72);
+	color: #7a4600;
+}
+
+.xm-traffic-maximize {
+	background-color: #28c840;
+	border-color: rgba(26, 171, 41, 0.72);
+	color: #005800;
+}
+
+.xm-traffic-glyph {
+	width: 8px;
+	height: 8px;
+	opacity: 0;
+	transition: opacity 110ms ease;
+	pointer-events: none;
+}
+
+.xm-traffic-lights:hover .xm-traffic-glyph,
+.xm-traffic-lights:focus-within .xm-traffic-glyph {
+	opacity: 1;
+}
+
+.xm-traffic-lights.xm-window-unfocused:not(:hover):not(:focus-within) .xm-traffic-btn {
+	background-color: rgba(142, 142, 147, 0.34);
+	border-color: rgba(142, 142, 147, 0.42);
+}
+
+/* ==========================================================================
+   macOS 2026 Desktop Liquid Glass Pull-Down Menu (lg >= 1024px only)
+   ========================================================================== */
+
+@keyframes xmMacosMenuPop {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.xm-macos-menu {
+	border-radius: 12px;
+	padding: 5px;
+	background: rgba(252, 252, 254, 0.88);
+	backdrop-filter: blur(28px) saturate(195%);
+	-webkit-backdrop-filter: blur(28px) saturate(195%);
+	border: 1px solid rgba(15, 23, 42, 0.11);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.72),
+		0 14px 36px rgba(15, 23, 42, 0.16),
+		0 2px 8px rgba(15, 23, 42, 0.08);
+	transition: opacity 110ms cubic-bezier(0.2, 0, 0, 1), transform 110ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark .xm-macos-menu {
+	background: rgba(34, 34, 38, 0.88);
+	border-color: rgba(255, 255, 255, 0.14);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+		0 18px 44px rgba(0, 0, 0, 0.52),
+		0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.xm-macos-menu-open {
+	animation: xmMacosMenuPop 115ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.xm-macos-menu-item {
+	display: flex;
+	width: 100%;
+	height: 30px;
+	align-items: center;
+	gap: 0.55rem;
+	border-radius: 7px;
+	padding: 0 0.625rem;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	line-height: 1;
+	color: var(--xm-text-primary);
+	text-align: left;
+	cursor: pointer;
+	user-select: none;
+	transition: background-color 80ms ease, color 80ms ease;
+}
+
+.xm-macos-menu-item:hover,
+.xm-macos-menu-item:focus-visible {
+	background-color: var(--xm-accent-btn);
+	color: #ffffff;
+	outline: none;
+}
+
+.xm-macos-menu-item:hover svg,
+.xm-macos-menu-item:focus-visible svg {
+	opacity: 1;
+}
+
+.xm-macos-menu-item-danger {
+	color: #d70015;
+}
+
+.dark .xm-macos-menu-item-danger {
+	color: #ff453a;
+}
+
+.xm-macos-menu-item-danger:hover,
+.xm-macos-menu-item-danger:focus-visible {
+	background-color: #d70015;
+	color: #ffffff;
+}
+
+.dark .xm-macos-menu-item-danger:hover,
+.dark .xm-macos-menu-item-danger:focus-visible {
+	background-color: #ff453a;
+	color: #ffffff;
+}
+
+.xm-macos-menu-sep {
+	height: 1px;
+	margin: 4px 8px;
+	background-color: var(--xm-divider);
+}
+
+/* ==========================================================================
+   Desktop GPU Compositing Optimization (MDN CSS Performance Best Practices)
+   Eliminates WebKitGTK / WKWebView / WebView2 multi-layer backdrop-blur lag
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+	.xm-macos-sidebar,
+	.xm-macos-toolbar,
+	.xm-macos-inspector {
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+		contain: layout style;
+	}
+
+	.glass-surface {
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+	}
+}
+
+@keyframes xmPanelReveal {
+	from {
+		opacity: 0;
+		transform: translateX(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.xm-panel-reveal {
+	animation: xmPanelReveal 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ==========================================================================
+   Keyboard Shortcuts Cheatsheet Modal & Tactile macOS Keycaps
+   ========================================================================== */
+
+.xm-shortcuts-dialog {
+	background: rgba(252, 252, 254, 0.94);
+	backdrop-filter: blur(24px) saturate(185%);
+	-webkit-backdrop-filter: blur(24px) saturate(185%);
+	border: 1px solid rgba(15, 23, 42, 0.12);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.72),
+		0 24px 60px rgba(15, 23, 42, 0.22),
+		0 4px 16px rgba(15, 23, 42, 0.08);
+	animation: xmMacosMenuPop 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark .xm-shortcuts-dialog {
+	background: rgba(28, 28, 32, 0.94);
+	border-color: rgba(255, 255, 255, 0.14);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.1),
+		0 28px 68px rgba(0, 0, 0, 0.62),
+		0 4px 18px rgba(0, 0, 0, 0.34);
+}
+
+.xm-kbd {
+	display: inline-flex;
+	min-width: 22px;
+	height: 22px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	padding: 0 5px;
+	font-family: var(--xm-font-mono);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	color: var(--xm-text-primary);
+	background: rgba(255, 255, 255, 0.85);
+	border: 1px solid rgba(15, 23, 42, 0.16);
+	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.1);
+}
+
+.dark .xm-kbd {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.16);
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
