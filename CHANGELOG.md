@@ -5,6 +5,12 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.17] - 2026-11-25
+
+### Improved
+- **Clean Kotlin 2.x Gradle DSL in Android Storage Plugin (`plugins/tauri-plugin-xmemos-storage/android/build.gradle.kts`)**:
+  - Migrated deprecated `kotlinOptions { jvmTarget = "17" }` to the modern top-level `kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }` DSL and removed the unused `consumerProguardFiles("consumer-rules.pro")` declaration to eliminate Gradle warnings during Android builds.
+
 ## [2.7.16] - 2026-11-25
 
 ### Fixed
