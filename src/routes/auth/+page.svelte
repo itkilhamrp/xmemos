@@ -59,7 +59,7 @@
 
 	async function handleSubmit(e: SubmitEvent): Promise<void> {
 		e.preventDefault();
-		const normalizedUsername = normalizedUsername.toLowerCase();
+		const normalizedUsername = username.trim().toLowerCase();
 		if (!normalizedUsername || !password) {
 			toastState.show(i18n.t('auth.requiredFields'), 'info');
 			return;

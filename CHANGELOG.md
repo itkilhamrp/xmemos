@@ -5,6 +5,15 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.25] - 2026-11-26
+
+### Fixed
+- **SvelteKit 3 Typecheck & Pre-Flight Build (`pnpm check`)**:
+  - Removed the removed `@sveltejs/kit` v2 `HandleClientError` type import in `src/hooks.client.ts` and annotated `handleError` parameters explicitly for SvelteKit 3.4 compatibility.
+  - Fixed `normalizedUsername` self-initialization typo in `src/routes/auth/+page.svelte` to normalize `username.trim().toLowerCase()`.
+  - Corrected the desktop sticky-note menu i18n key in `src/lib/components/memo/MemoActionsSheet.svelte` to `'sticky.open'`.
+  - Added `role="toolbar"` to the swipeable track in `src/lib/components/layout/BottomTabbar.svelte` to satisfy Svelte 5 a11y checks (`a11y_no_static_element_interactions`).
+
 ## [2.7.24] - 2026-11-25
 
 ### Fixed

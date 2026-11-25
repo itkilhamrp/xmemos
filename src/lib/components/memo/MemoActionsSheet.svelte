@@ -286,7 +286,7 @@
 					onclick={openAsStickyNote}
 				>
 					<StickyNote class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
-					<span class="truncate">{i18n.t('memo.openStickyNote')}</span>
+					<span class="truncate">{i18n.t('sticky.open')}</span>
 				</button>
 			{/if}
 

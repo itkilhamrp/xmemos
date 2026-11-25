@@ -17,9 +17,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { HandleClientError } from '@sveltejs/kit';
-
-export const handleError: HandleClientError = ({ error, message }) => {
+export function handleError({
+	error,
+	message
+}: {
+	error: unknown;
+	message: string;
+}): { message: string } {
 	const detail =
 		error instanceof Error
 			? error.message || message
@@ -30,4 +34,4 @@ export const handleError: HandleClientError = ({ error, message }) => {
 	return {
 		message: detail || 'An unexpected application error occurred.'
 	};
-};
+}
