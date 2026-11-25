@@ -91,4 +91,3 @@ Copyright (C) 2026 Xmemos Contributors. Licensed under the **GNU Affero General 
 ## Multi-Language Support (i18n)
 
 Xmemos v2.1.0+ ships with a strict, modular, zero-hardcode i18n architecture (`src/lib/i18n/`) supporting **English (`en`)**, **Bahasa Indonesia (`id`)**, and **Español (`es`)** with instant switching in **Settings → Preferences → Language**.
-# xmemos

@@ -5,6 +5,12 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.11] - 2026-11-25
+
+### Fixed
+- **GitHub Actions `dtolnay/rust-toolchain` Required Input Fix (`.github/workflows/{release,android-release,linux-release,windows-release,macos-release}.yml`)**:
+  - Passed explicit `toolchain: '1.100.0'` (matching `rust-toolchain.toml`, since `dtolnay/rust-toolchain@master` ignores `rust-toolchain.toml` and requires the `toolchain` input) along with `components: clippy, rustfmt` in `release.yml` and Android targets in `android-release.yml` across all 6 workflow jobs.
+
 ## [2.7.10] - 2026-11-25
 
 ### Fixed

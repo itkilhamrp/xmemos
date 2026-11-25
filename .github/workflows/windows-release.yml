@@ -65,8 +65,10 @@ jobs:
           node-version-file: '.node-version'
           cache: 'pnpm'
 
-      - name: Setup Rust toolchain (pinned rust-toolchain.toml)
+      - name: Setup Rust toolchain (pinned 1.100.0)
         uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.100.0'
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2

@@ -87,6 +87,7 @@ jobs:
       - name: Setup Rust toolchain & macOS target (${{ matrix.rust_target }})
         uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: '1.100.0'
           targets: ${{ matrix.rust_target }}
 
       - name: Cache Rust artifacts
