@@ -360,14 +360,50 @@ jobs:
           \`\`\`
           BODY_EOF
 
-          FLAGS=""
-          if [ "${{ inputs.release_channel }}" = "prerelease" ]; then
-            FLAGS="--prerelease"
-          elif [ "${{ inputs.release_channel }}" = "draft" ]; then
-            FLAGS="--draft"
+          retry_gh() {
+            local attempt=1
+            local max_attempts=5
+            local delay=5
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+              if [ "${attempt}" -ge "${max_attempts}" ]; then
+                echo "ERROR: Command failed after ${max_attempts} attempts: $*" >&2
+                return 1
+              fi
+              echo "WARN: Attempt ${attempt}/${max_attempts} failed; retrying in ${delay}s..." >&2
+              sleep "${delay}"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
+          TAG="v${APP_VERSION}"
+
+          # 1. Create (as draft) or update release metadata with explicit --target commit SHA
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            retry_gh gh release edit "${TAG}" \
+              --title "Xmemos ${TAG}" \
+              --notes-file release-notes.md
+          else
+            retry_gh gh release create "${TAG}" \
+              --target "${GITHUB_SHA}" \
+              --title "Xmemos ${TAG}" \
+              --notes-file release-notes.md \
+              --draft
           fi
 
-          gh release create "v${APP_VERSION}" dist-release/* \
-            --title "Xmemos v${APP_VERSION}" \
-            --notes-file release-notes.md \
-            ${FLAGS}
+          # 2. Upload each asset individually with --clobber and per-file exponential-backoff retries
+          for asset in dist-release/*; do
+            [ -f "${asset}" ] || continue
+            echo "Uploading release asset: ${asset}"
+            retry_gh gh release upload "${TAG}" "${asset}" --clobber
+          done
+
+          # 3. Publish the completed draft release (compatible with GitHub Immutable Releases)
+          if [ "${{ inputs.release_channel }}" = "stable" ]; then
+            retry_gh gh release edit "${TAG}" --draft=false --prerelease=false
+          elif [ "${{ inputs.release_channel }}" = "prerelease" ]; then
+            retry_gh gh release edit "${TAG}" --draft=false --prerelease=true
+          fi

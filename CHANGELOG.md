@@ -5,6 +5,12 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.19] - 2026-11-25
+
+### Fixed
+- **Idempotent & Retry-Hardened GitHub Release Publishing (`.github/workflows/release.yml`)**:
+  - Replaced the single-shot `gh release create ... dist-release/*` call (which failed on transient GitHub API `HTTP 500` responses) with an atomic, idempotent 3-phase publisher featuring 5-attempt exponential-backoff retries (`retry_gh`): create/update `--draft` release with explicit `--target "${GITHUB_SHA}"`, upload every platform asset individually with `gh release upload --clobber`, then publish via `gh release edit --draft=false` (fully compatible with GitHub Immutable Releases and safe re-runs).
+
 ## [2.7.18] - 2026-11-25
 
 ### Fixed
