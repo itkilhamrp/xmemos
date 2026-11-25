@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Preloader } from 'konsta/svelte';
@@ -104,7 +105,11 @@
 
 	$effect(() => {
 		const uname = page.params.username;
-		if (uname) void loadProfile(uname);
+		if (uname) {
+			untrack(() => {
+				void loadProfile(uname);
+			});
+		}
 	});
 </script>
 

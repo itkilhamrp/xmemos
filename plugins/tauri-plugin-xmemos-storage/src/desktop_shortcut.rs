@@ -21,9 +21,7 @@
 //! Windows 10/11 (native Shell .lnk), and macOS (native LSUIElement .app launcher bundle).
 
 use std::fs;
-use std::path::Path;
-#[cfg(target_os = "macos")]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -111,6 +109,97 @@ fn sanitize_filename(raw: &str, uid: &str) -> String {
     format!("{prefix} ({short_uid})")
 }
 
+#[cfg(target_os = "linux")]
+fn parse_xdg_user_desktop_dir(home: &Path) -> Option<PathBuf> {
+    let config_root = std::env::var_os("XDG_CONFIG_HOME")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+    let content = fs::read_to_string(config_root.join("user-dirs.dirs")).ok()?;
+    for raw_line in content.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some(rest) = line.strip_prefix("XDG_DESKTOP_DIR=") else {
+            continue;
+        };
+        let unquoted = rest.trim().trim_matches('"').trim_matches(''');
+        if unquoted.is_empty() {
+            continue;
+        }
+        let expanded = if let Some(suffix) = unquoted.strip_prefix("$HOME/") {
+            home.join(suffix)
+        } else if unquoted == "$HOME" {
+            home.join("Desktop")
+        } else {
+            PathBuf::from(unquoted)
+        };
+        if expanded.is_absolute() {
+            return Some(expanded);
+        }
+    }
+    None
+}
+
+fn resolve_desktop_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    if let Ok(dir) = app.path().desktop_dir() {
+        if !dir.as_os_str().is_empty() {
+            return Some(dir);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(env_dir) = std::env::var_os("XDG_DESKTOP_DIR").filter(|v| !v.is_empty()) {
+            let p = PathBuf::from(env_dir);
+            if p.is_absolute() {
+                return Some(p);
+            }
+        }
+        let home = app
+            .path()
+            .home_dir()
+            .ok()
+            .or_else(|| std::env::var_os("HOME").filter(|v| !v.is_empty()).map(PathBuf::from));
+        if let Some(home_dir) = home {
+            if let Some(xdg_dir) = parse_xdg_user_desktop_dir(&home_dir) {
+                return Some(xdg_dir);
+            }
+            return Some(home_dir.join("Desktop"));
+        }
+        None
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(onedrive) = std::env::var_os("OneDrive").filter(|v| !v.is_empty()) {
+            let candidate = PathBuf::from(onedrive).join("Desktop");
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+        }
+        if let Some(profile) = std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()) {
+            return Some(PathBuf::from(profile).join("Desktop"));
+        }
+        app.path().home_dir().ok().map(|h| h.join("Desktop"))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        app.path()
+            .home_dir()
+            .ok()
+            .or_else(|| std::env::var_os("HOME").filter(|v| !v.is_empty()).map(PathBuf::from))
+            .map(|h| h.join("Desktop"))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        app.path().home_dir().ok().map(|h| h.join("Desktop"))
+    }
+}
+
 pub fn create_desktop_memo_shortcut<R: Runtime>(
     app: &AppHandle<R>,
     req: &CreateMemoShortcutRequest,
@@ -124,30 +213,40 @@ pub fn create_desktop_memo_shortcut<R: Runtime>(
     let preview = sanitize_label(&req.preview, 120, "Open memo in Xmemos");
     let file_stem = sanitize_filename(&title, &req.memo_uid);
 
-    let desktop_dir = app
-        .path()
-        .desktop_dir()
-        .map_err(|e| Error::Storage(format!("Could not locate Desktop directory: {e}")))?;
-    fs::create_dir_all(&desktop_dir)?;
-
     #[cfg(target_os = "linux")]
     {
-        create_linux_desktop_entry(app, &desktop_dir, &file_stem, &title, &preview, &req.memo_uid)
+        let desktop_dir = resolve_desktop_dir(app);
+        create_linux_desktop_entry(
+            app,
+            desktop_dir.as_deref(),
+            &file_stem,
+            &title,
+            &preview,
+            &req.memo_uid,
+        )
     }
 
     #[cfg(target_os = "windows")]
     {
+        let desktop_dir = resolve_desktop_dir(app).ok_or_else(|| {
+            Error::Storage("Could not locate Windows Desktop directory".to_string())
+        })?;
+        fs::create_dir_all(&desktop_dir)?;
         create_windows_lnk_shortcut(&desktop_dir, &file_stem, &preview, &req.memo_uid)
     }
 
     #[cfg(target_os = "macos")]
     {
+        let desktop_dir = resolve_desktop_dir(app).ok_or_else(|| {
+            Error::Storage("Could not locate macOS Desktop directory".to_string())
+        })?;
+        fs::create_dir_all(&desktop_dir)?;
         create_macos_app_shortcut(&desktop_dir, &file_stem, &title, &req.memo_uid)
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
-        let _ = (desktop_dir, file_stem, title, preview);
+        let _ = (app, file_stem, title, preview);
         Ok(CreateMemoShortcutResponse {
             created: false,
             unsupported: true,
@@ -174,13 +273,14 @@ fn escape_desktop_exec_arg(arg: &str) -> String {
 #[cfg(target_os = "linux")]
 fn create_linux_desktop_entry<R: Runtime>(
     app: &AppHandle<R>,
-    desktop_dir: &Path,
+    desktop_dir: Option<&Path>,
     file_stem: &str,
     title: &str,
     preview: &str,
     memo_uid: &str,
 ) -> Result<CreateMemoShortcutResponse> {
     use std::os::unix::fs::PermissionsExt;
+    use crate::desktop_dialog;
 
     let is_flatpak = Path::new("/.flatpak-info").exists();
     let flag = format!("{OPEN_MEMO_FLAG}{memo_uid}");
@@ -226,9 +326,44 @@ fn create_linux_desktop_entry<R: Runtime>(
          StartupNotify=true\n"
     );
 
-    let dest = desktop_dir.join(format!("{file_stem}.desktop"));
-    fs::write(&dest, desktop_content)?;
-    fs::set_permissions(&dest, fs::Permissions::from_mode(0o755))?;
+    let suggested_name = format!("{file_stem}.desktop");
+    if let Some(dir) = desktop_dir {
+        if fs::create_dir_all(dir).is_ok() {
+            let dest = dir.join(&suggested_name);
+            if fs::write(&dest, &desktop_content).is_ok() {
+                let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
+                return Ok(CreateMemoShortcutResponse {
+                    created: true,
+                    unsupported: false,
+                    path: Some(dest.to_string_lossy().to_string()),
+                    message: None,
+                });
+            }
+        }
+    }
+
+    // Fallback (e.g. sandboxed Flatpak without xdg-desktop write permission): route via native portal Save dialog
+    let picked = desktop_dialog::save_file_dialog(
+        app,
+        "Save Memo Shortcut",
+        &suggested_name,
+        "application/x-desktop",
+    )?;
+    let Some(dest) = picked else {
+        return Ok(CreateMemoShortcutResponse {
+            created: false,
+            unsupported: false,
+            path: None,
+            message: Some("cancelled".to_string()),
+        });
+    };
+    if let Some(parent) = dest.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    fs::write(&dest, &desktop_content)?;
+    let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
 
     Ok(CreateMemoShortcutResponse {
         created: true,

@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	import { memoApi } from '#lib/api/memo.ts';
@@ -131,7 +132,9 @@
 	$effect(() => {
 		const _uid = authState.currentUser?.id ?? null;
 		void _uid;
-		void load(true);
+		untrack(() => {
+			void load(true);
+		});
 	});
 </script>
 

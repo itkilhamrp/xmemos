@@ -26,7 +26,7 @@
 	import { memoApi } from '#lib/api/memo.ts';
 	import type { MemoView } from '#lib/types/memo.ts';
 	import { i18n, type TranslationKey } from '#lib/i18n/index.svelte.ts';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { authState } from '#lib/state/auth.svelte.ts';
 	import { desktopLayoutState } from '#lib/state/desktop-layout.svelte.ts';
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
@@ -265,7 +265,9 @@
 		const _orderBy = feedDisplayState.orderBy;
 		const _orderDir = feedDisplayState.orderDirection;
 		void [_auth, _qf, _tag, _date, _terms, _orderBy, _orderDir];
-		void loadExplore(true);
+		untrack(() => {
+			void loadExplore(true);
+		});
 	});
 </script>
 

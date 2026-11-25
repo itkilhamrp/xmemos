@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { BlockTitle, Button, List, ListItem, Toggle } from 'konsta/svelte';
 	import { Lock } from 'lucide-svelte';
@@ -121,12 +122,15 @@
 	}
 
 	$effect(() => {
-		if (authState.isAuthenticated) {
-			void load();
-		} else {
-			breakdown = null;
-			history = [];
-		}
+		const authed = authState.isAuthenticated;
+		untrack(() => {
+			if (authed) {
+				void load();
+			} else {
+				breakdown = null;
+				history = [];
+			}
+		});
 	});
 </script>
 

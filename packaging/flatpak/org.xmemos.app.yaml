@@ -15,6 +15,7 @@ finish-args:
   - --device=dri
   - --share=ipc
   - --socket=pulseaudio
+  - --filesystem=xdg-desktop:create
 modules:
   - name: xmemos
     buildsystem: simple

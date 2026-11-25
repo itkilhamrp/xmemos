@@ -26,7 +26,7 @@
 
 	import type { MemoView } from '#lib/types/memo.ts';
 	import { i18n, type TranslationKey } from '#lib/i18n/index.svelte.ts';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { authState } from '#lib/state/auth.svelte.ts';
 	import { desktopLayoutState } from '#lib/state/desktop-layout.svelte.ts';
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
@@ -72,13 +72,13 @@
 	$effect(() => {
 		if (!authState.initialized) return;
 		if (!authState.hasHost) {
-			void goto('/auth', { replaceState: true });
+			untrack(() => {
+				void goto('/auth', { replaceState: true });
+			});
 			return;
 		}
 		const uid = authState.currentUser?.id ?? null;
-		if (!filterState.hasActiveFilters) {
-			memosState.hydrateSnapshot(uid);
-		}
+		const hasActiveFilters = filterState.hasActiveFilters;
 		const _tag = filterState.selectedTag;
 		const _date = filterState.selectedDate;
 		const _qf = filterState.quickFilter;
@@ -86,8 +86,13 @@
 		const _terms = filterState.searchTerms.join('\u0000');
 		const _orderBy = feedDisplayState.orderBy;
 		const _orderDir = feedDisplayState.orderDirection;
-		void [uid, _tag, _date, _qf, _vis, _terms, _orderBy, _orderDir];
-		void reload(true);
+		void [uid, hasActiveFilters, _tag, _date, _qf, _vis, _terms, _orderBy, _orderDir];
+		untrack(() => {
+			if (!hasActiveFilters) {
+				memosState.hydrateSnapshot(uid);
+			}
+			void reload(true);
+		});
 	});
 
 	function handleSearchInput(e: Event): void {

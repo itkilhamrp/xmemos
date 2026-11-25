@@ -209,9 +209,14 @@
 
 	$effect(() => {
 		if (!opened) return;
+		const curEditing = editingMemo;
+		const curInitialDate = initialDate;
+		const curInitialLocation = initialLocation;
+		void [curEditing, curInitialDate, curInitialLocation];
+		untrack(() => {
 		editorTab = 'write';
 		dragActive = false;
-		if (editingMemo) {
+		if (curEditing) {
 			revokeAllPreviewUrls();
 			content = editingMemo.memo.content;
 			visibility = editingMemo.memo.visibility;
@@ -274,6 +279,7 @@
 					content = '';
 				});
 		}
+		});
 	});
 
 	// Autosave draft to xmemos_local.db when composing a new memo

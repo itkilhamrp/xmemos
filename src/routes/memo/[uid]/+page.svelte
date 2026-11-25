@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Button, Preloader } from 'konsta/svelte';
@@ -62,7 +63,11 @@
 
 	$effect(() => {
 		const uid = page.params.uid;
-		if (uid) void loadDetail(uid);
+		if (uid) {
+			untrack(() => {
+				void loadDetail(uid);
+			});
+		}
 	});
 </script>
 

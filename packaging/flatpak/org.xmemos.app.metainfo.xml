@@ -50,7 +50,7 @@
   </description>
   <releases>
     <!-- Auto-synced from package.json and CHANGELOG.md via `pnpm version:sync` -->
-    <release version="2.7.27" date="2026-11-26">
+    <release version="2.7.29" date="2026-11-26">
       <url type="details">https://github.com/xmemos/xmemos/blob/main/CHANGELOG.md</url>
     </release>
   </releases>

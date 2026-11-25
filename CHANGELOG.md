@@ -5,6 +5,20 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.29] - 2026-11-26
+
+### Fixed
+- **Desktop Memo Shortcut `Could not locate Desktop directory: unknown path` (`plugins/tauri-plugin-xmemos-storage/src/desktop_shortcut.rs`, `packaging/flatpak/org.xmemos.app.yaml`, `src/lib/components/memo/MemoActionsSheet.svelte`)**:
+  - Replaced the single `app.path().desktop_dir()` call with a resilient multi-tier `resolve_desktop_dir()` resolver across GNU/Linux (Tauri `desktop_dir()` → `$XDG_DESKTOP_DIR` → `~/.config/user-dirs.dirs` → `$HOME/Desktop`), Windows (`desktop_dir()` → `%OneDrive%\Desktop` → `%USERPROFILE%\Desktop`), and macOS (`desktop_dir()` → `$HOME/Desktop`), preventing failures on minimal Linux/Devuan/Wayland setups or Flatpak sandboxes where `user-dirs.dirs` is absent.
+  - Added a narrow `--filesystem=xdg-desktop:create` permission in `packaging/flatpak/org.xmemos.app.yaml` (preserving strict offline sandboxing without `--filesystem=host`) plus an automatic `xdg-desktop-portal` native Save dialog fallback in `create_linux_desktop_entry()` whenever direct Desktop writes are restricted.
+
+## [2.7.28] - 2026-11-26
+
+### Fixed
+- **Fatal Svelte 5 `effect_update_depth_exceeded` (Error 500) on Home Launch (`src/lib/state/memos.svelte.ts`, `src/routes/+page.svelte`, `src/routes/{explore,archived,memo/[uid],u/[username],settings/storage}/+page.svelte`, `src/lib/components/memo/MemoEditor.svelte`, `src/lib/components/media/ImageLightbox.svelte`)**:
+  - Fixed an infinite reactive loop in `MemosState.hydrateSnapshot()` where checking `this.hydratedForUser === creatorId && this.items.length > 0` inside Home's `$effect` subscribed the effect to `memosState.items` whenever an account had 0 memos and then re-assigned a fresh `JSON.parse(...)` array to `this.items` on every flush, exceeding Svelte 5's 1000-iteration depth limit (`effect_update_depth_exceeded`).
+  - Wrapped side-effecting data loaders and state resets inside `untrack()` across Home, Explore, Archived, Memo Detail, User Profile, Storage Settings, `MemoEditor`, and `ImageLightbox` so `$effect` blocks only track their explicit trigger dependencies and can never re-trigger themselves.
+
 ## [2.7.27] - 2026-11-26
 
 ### Fixed

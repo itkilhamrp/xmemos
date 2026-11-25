@@ -63,7 +63,7 @@ class MemosState {
 	hydrateSnapshot(creatorId: number | null): void {
 		if (typeof window === 'undefined' || creatorId === null) return;
 		if (feedDisplayState.hasNonDefaultSort) return;
-		if (this.hydratedForUser === creatorId && this.items.length > 0) return;
+		if (this.hydratedForUser === creatorId) return;
 		try {
 			const raw = localStorage.getItem(`${SNAPSHOT_PREFIX}${creatorId}`);
 			if (!raw) return;

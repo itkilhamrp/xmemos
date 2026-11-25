@@ -142,7 +142,7 @@
 				);
 			} else if (res.unsupported) {
 				toastState.show(res.message || i18n.t('memo.shortcutUnsupported'), 'info');
-			} else {
+			} else if (res.message !== 'cancelled') {
 				toastState.show(
 					i18n.t('memo.shortcutFailed', { error: res.message || 'Unknown error' }),
 					'error'

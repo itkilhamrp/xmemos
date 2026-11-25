@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import {
 		ChevronLeft,
 		ChevronRight,
@@ -222,12 +223,14 @@
 	$effect(() => {
 		const activeSrc = lightboxState.current?.src;
 		void activeSrc;
-		resetTransform();
-		naturalWidth = null;
-		naturalHeight = null;
-		if (!activeSrc) {
-			infoOpened = false;
-		}
+		untrack(() => {
+			resetTransform();
+			naturalWidth = null;
+			naturalHeight = null;
+			if (!activeSrc) {
+				infoOpened = false;
+			}
+		});
 	});
 
 	$effect(() => {
