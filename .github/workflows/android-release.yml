@@ -199,6 +199,8 @@ jobs:
           build_abi() {
             local abi_name="$1"
             local tauri_target="$2"
+            # Remove prior ABI APK outputs so discovery strictly selects this ABI's freshly built APK
+            rm -rf src-tauri/gen/android/app/build/outputs/apk
             if [ "${tauri_target}" = "universal" ]; then
               pnpm tauri android build --apk
             else

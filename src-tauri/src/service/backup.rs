@@ -760,7 +760,9 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<usize> {
 /// Safe atomic import with pre-import rollback snapshot and automatic recovery on failure.
 pub fn execute_atomic_import(state: &AppState, source_path: &Path) -> AppResult<ImportResult> {
     let staged = stage_and_validate_import(state, source_path)?;
-    let rollback_path = state.temp_dir().join("rollback_snapshot.db");
+    let temp_dir = state.temp_dir();
+    fs::create_dir_all(&temp_dir)?;
+    let rollback_path = temp_dir.join("rollback_snapshot.db");
     create_clean_db_snapshot(state, &rollback_path, &BackupScope::AllUsers)?;
 
     let swap_result: AppResult<usize> = (|| {

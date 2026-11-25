@@ -46,6 +46,9 @@ impl AppState {
     ) -> AppResult<Self> {
         fs::create_dir_all(&db_dir)?;
         fs::create_dir_all(media_root.join("assets").join("avatars"))?;
+        fs::create_dir_all(media_root.join("backups"))?;
+        fs::create_dir_all(media_root.join("temp"))?;
+        fs::create_dir_all(cache_dir.join("thumbs"))?;
 
         let memos_db_path = db_dir.join("memos_prod.db");
         let local_db_path = db_dir.join("xmemos_local.db");

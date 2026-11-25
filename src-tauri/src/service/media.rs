@@ -339,7 +339,9 @@ pub fn generate_thumbnail(state: &AppState, uid: &str, mime_type: &str, bytes: &
     if !mime_type.starts_with("image/") || mime_type == "image/svg+xml" {
         return;
     }
-    let thumb_path = state.thumbs_dir().join(format!("{uid}.webp"));
+    let thumbs_dir = state.thumbs_dir();
+    let _ = fs::create_dir_all(&thumbs_dir);
+    let thumb_path = thumbs_dir.join(format!("{uid}.webp"));
     if let Ok(img) = image::load_from_memory(bytes) {
         let thumb = img.thumbnail(360, 360);
         let _ = thumb.save_with_format(&thumb_path, ImageFormat::WebP);

@@ -91,6 +91,7 @@ function run(): void {
 	const pkgPath = resolve(rootDir, 'package.json');
 	const tauriConfPath = resolve(rootDir, 'src-tauri/tauri.conf.json');
 	const cargoTomlPath = resolve(rootDir, 'src-tauri/Cargo.toml');
+	const cargoLockPath = resolve(rootDir, 'src-tauri/Cargo.lock');
 	const gradlePropsPath = resolve(rootDir, 'src-tauri/gen/android/app/tauri.properties');
 	const changelogPath = resolve(rootDir, 'CHANGELOG.md');
 	const metainfoPath = resolve(rootDir, 'packaging/flatpak/org.xmemos.app.metainfo.xml');
@@ -124,6 +125,26 @@ function run(): void {
 			errors.push(
 				`src-tauri/Cargo.toml version "${cargoVersionMatch[1]}" != package.json "${appVersion}". Run "pnpm version:sync".`
 			);
+		}
+	}
+
+	// 2b. Validate or sync src-tauri/Cargo.lock root package version (required by `cargo --locked`)
+	if (existsSync(cargoLockPath)) {
+		const lockContent = readFileSync(cargoLockPath, 'utf8');
+		const lockRegex = /(\[\[package\]\]\r?\nname = "xmemos"\r?\nversion = )"([^"]+)"/;
+		const lockMatch = lockRegex.exec(lockContent);
+		if (!lockMatch) {
+			errors.push('Could not find "xmemos" package version in src-tauri/Cargo.lock.');
+		} else if (lockMatch[2] !== appVersion) {
+			if (mode === 'sync') {
+				const updated = lockContent.replace(lockRegex, `$1"${appVersion}"`);
+				writeFileSync(cargoLockPath, updated, 'utf8');
+				console.log(`Synced src-tauri/Cargo.lock xmemos version -> ${appVersion}`);
+			} else {
+				errors.push(
+					`src-tauri/Cargo.lock xmemos version "${lockMatch[2]}" != package.json "${appVersion}". Run "pnpm version:sync".`
+				);
+			}
 		}
 	}
 

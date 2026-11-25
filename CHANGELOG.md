@@ -5,6 +5,19 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.26] - 2026-11-26
+
+### Fixed
+- **Rust Integration Test Panic & Startup Directory Race (`src-tauri/src/state.rs`, `src-tauri/src/service/media.rs`, `src-tauri/src/service/backup.rs`, `src-tauri/tests/compatibility_tests.rs`)**:
+  - Restored deterministic creation of `backups/`, `temp/`, and `thumbs/` inside `AppState::initialize()` (while keeping stale `temp/` cleanup and FTS5 parity verification on the non-blocking background thread), fixing the `test_path_traversal_and_zip_slip_rejected` (`NotFound`) panic in GitHub Actions `cargo test --locked`.
+  - Added defensive `fs::create_dir_all()` guards in `media::generate_thumbnail()`, `backup::execute_atomic_import()`, and `compatibility_tests.rs` so thumbnail writes and atomic rollback snapshots never fail even if cache/temp directories are pruned at runtime.
+- **Deterministic Multi-ABI Android APK Packaging (`.github/workflows/android-release.yml`, `scripts/verify-repro.sh`)**:
+  - Cleared `src-tauri/gen/android/app/build/outputs/apk` at the start of `build_abi()` so `target_abis=all` strictly signs and packages each ABI's freshly built APK instead of re-selecting the alphabetically first ABI output (`aarch64`).
+  - Hardened `scripts/verify-repro.sh` APK discovery to match release APKs deterministically (`*release-unsigned.apk` / `*release.apk`).
+- **Locked Cargo Version SSOT & Documentation Parity (`scripts/sync-version.ts`, `docs/REPRODUCIBLE_BUILDS.md`, `docs/ai/TASK_PLAYBOOK.md`)**:
+  - Extended `scripts/sync-version.ts` (`pnpm version:sync` / `pnpm version:check`) to validate and synchronize the root `xmemos` version in `src-tauri/Cargo.lock`, preventing `cargo clippy --locked` / `cargo test --locked` drift after version bumps.
+  - Updated `docs/REPRODUCIBLE_BUILDS.md` (native `flatpak-builder` reference and `v2.7.26` verification examples) and `docs/ai/TASK_PLAYBOOK.md`.
+
 ## [2.7.25] - 2026-11-26
 
 ### Fixed

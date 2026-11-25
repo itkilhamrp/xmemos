@@ -40,7 +40,7 @@ build_once() {
   pnpm build
   pnpm tauri android build --apk --target "${ABI}"
   local apk
-  apk="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+  apk="$(find src-tauri/gen/android/app/build/outputs/apk -type f \( -name '*release-unsigned.apk' -o -name '*release.apk' \) | sort | head -n 1)"
   if [[ -z "${apk}" ]]; then
     echo "ERROR: No APK produced during build." >&2
     exit 1

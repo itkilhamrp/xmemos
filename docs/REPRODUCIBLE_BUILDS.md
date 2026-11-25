@@ -19,7 +19,7 @@ Xmemos is engineered to produce deterministic, auditable, and supply-chain-harde
    - `zipalign -p -f -v 4` followed by `apksigner sign --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true` (omitting non-deterministic v1 JAR timestamps).
 6. **Desktop Offline Packaging Hygiene:**
    - **GNU/Linux AppImage (`x86_64` & `aarch64`):** Built inside official `ubuntu:22.04` (`glibc 2.35`) container with stripped binaries and lean packaging (`bundleMediaFramework: false`, avoiding ~60 MB GStreamer/FFmpeg bloat; for ultra-compact ~5 MB Linux installs, use the Flatpak bundle).
-   - **GNU/Linux Flatpak (`x86_64` & `aarch64`):** Built with official `org.flatpak.Builder` on `org.gnome.Platform//51` with strict offline sandboxing (no `--share=network`, no `--filesystem=host`) and exported as a single-file `.flatpak` bundle.
+   - **GNU/Linux Flatpak (`x86_64` & `aarch64`):** Built with native `flatpak-builder` on `org.gnome.Platform//51` with strict offline sandboxing (no `--share=network`, no `--filesystem=host`) and exported as a single-file `.flatpak` bundle.
    - **Windows 10/11 (`x64`):** 100% offline lean NSIS LZMA installer (`webviewInstallMode.type = "skip"`, ~5–6 MB, zero network requests during install or runtime, using the OS-preinstalled WebView2 Runtime—independent of the Edge browser) plus a deterministic `SOURCE_DATE_EPOCH`-normalized Portable `.zip` (`scripts/package-windows-portable.py`). At startup (`src-tauri/src/main.rs`), Xmemos auto-detects a local portable `webview2\` Fixed Version Runtime folder next to `Xmemos.exe` for debloated/air-gapped Windows PCs and shows a clean native Win32 dialog if WebView2 Runtime is completely absent.
    - **macOS (`arm64` & `x64`):** Per-architecture `.dmg` images targeting macOS 12.0+.
 7. **Supply Chain Security & SLSA Build Provenance:**
@@ -34,11 +34,11 @@ Xmemos is engineered to produce deterministic, auditable, and supply-chain-harde
 ./scripts/verify-repro.sh aarch64
 
 # Verify SHA-256 checksums of any downloaded platform package
-sha256sum -c --ignore-missing Xmemos-v2.7.25-SHA256SUMS.txt
+sha256sum -c --ignore-missing Xmemos-v2.7.26-SHA256SUMS.txt
 
 # Verify Android APK signature & certificate fingerprints
-apksigner verify --verbose --print-certs Xmemos-v2.7.25-android-arm64-v8a-release.apk
+apksigner verify --verbose --print-certs Xmemos-v2.7.26-android-arm64-v8a-release.apk
 
 # Verify GitHub SLSA Build Provenance attestation (public repositories)
-gh attestation verify Xmemos-v2.7.25-linux-x86_64.AppImage --repo <OWNER>/<REPO>
+gh attestation verify Xmemos-v2.7.26-linux-x86_64.AppImage --repo <OWNER>/<REPO>
 ```

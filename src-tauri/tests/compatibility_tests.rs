@@ -339,6 +339,7 @@ fn test_path_traversal_and_zip_slip_rejected() {
     assert!(media::resolve_safe_asset_path(&state.media_root, "/etc/shadow").is_err());
 
     // Build malicious ZIP with path traversal entry
+    fs::create_dir_all(state.temp_dir()).expect("create temp dir");
     let malicious_zip = state.temp_dir().join("evil.xmemos");
     {
         let f = File::create(&malicious_zip).expect("create evil zip");

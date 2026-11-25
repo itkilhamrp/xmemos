@@ -11,6 +11,8 @@ Default permissions for the Xmemos Android/Desktop storage and biometric bridge
 - `allow-save-document`
 - `allow-authenticate-biometric`
 - `allow-check-biometric-available`
+- `allow-create-memo-shortcut`
+- `allow-consume-pending-memo-shortcut`
 
 ## Permission Table
 
@@ -69,6 +71,58 @@ Enables the check_biometric_available command without any pre-configured scope.
 <td>
 
 Denies the check_biometric_available command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`xmemos-storage:allow-consume-pending-memo-shortcut`
+
+</td>
+<td>
+
+Enables the consume_pending_memo_shortcut command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`xmemos-storage:deny-consume-pending-memo-shortcut`
+
+</td>
+<td>
+
+Denies the consume_pending_memo_shortcut command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`xmemos-storage:allow-create-memo-shortcut`
+
+</td>
+<td>
+
+Enables the create_memo_shortcut command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`xmemos-storage:deny-create-memo-shortcut`
+
+</td>
+<td>
+
+Denies the create_memo_shortcut command without any pre-configured scope.
 
 </td>
 </tr>
