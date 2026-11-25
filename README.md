@@ -22,11 +22,13 @@
 | Platform | Package Format | Offline & Compatibility Notes |
 | :--- | :--- | :--- |
 | **Android** (API 24–36) | `.apk` (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) | Deterministic v2/v3 signed, 100% GMS-free, F-Droid friendly |
-| **GNU/Linux (AppImage)** | `.AppImage` (`x86_64`, `aarch64`) | Built on Ubuntu 22.04 (`glibc 2.35`) with bundled GStreamer; cross-distro offline executable |
+| **GNU/Linux (AppImage)** | `.AppImage` (`x86_64`, `aarch64`) | Built on Ubuntu 22.04 (`glibc 2.35`), stripped & lean (`bundleMediaFramework: false`); cross-distro executable |
 | **GNU/Linux (Flatpak)** | `.flatpak` (`x86_64`, `aarch64`) | Sandboxed GNOME 51 single-file offline bundle (`--share=network` disabled, Portal file dialogs) |
-| **Windows 10/11 (Installer)** | `-offline-setup.exe` (`x64`) | NSIS LZMA installer with embedded Microsoft WebView2 Offline Installer (0 internet required) |
+| **Windows 10/11 (Installer)** | `-setup.exe` (`x64`) | 100% offline lean NSIS LZMA installer (~5–6 MB, `webviewInstallMode: skip`, 0 network calls; uses OS-preinstalled Windows 10/11 WebView2 Runtime) |
 | **Windows 10/11 (Portable)** | `-portable.zip` (`x64`) | Extract & run `Xmemos.exe`; self-contained `./data/` via `portable.flag` |
 | **macOS 12+** | `.dmg` (`arm64` Apple Silicon & `x64` Intel) | Native per-architecture disk images |
+
+> **Debloated / Air-Gapped Windows (Microsoft Edge Removed):** Removing the Microsoft Edge browser does **not** affect Xmemos—it only uses the separate **WebView2 Runtime** preinstalled on Windows 10/11. If an aggressive debloater also removed WebView2 Runtime, Xmemos automatically detects a portable **WebView2 Fixed Version Runtime** placed in a `webview2\` folder next to `Xmemos.exe` (zero system install, 100% offline), or displays a guided Win32 dialog instead of crashing.
 
 ## Quick Start
 

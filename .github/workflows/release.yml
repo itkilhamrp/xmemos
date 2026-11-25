@@ -324,9 +324,9 @@ jobs:
           | Platform | Package | Notes |
           | :--- | :--- | :--- |
           | **Android** (API 24–36) | \`Xmemos-v${APP_VERSION}-android-*-release.apk\` | Deterministic v2/v3 signed APK, GMS-free, Android-adaptive build |
-          | **GNU/Linux (AppImage)** | \`Xmemos-v${APP_VERSION}-linux-{x86_64,aarch64}.AppImage\` | Built on Ubuntu 22.04 (\`glibc 2.35\`) with bundled GStreamer; run \`chmod +x\` & execute offline |
+          | **GNU/Linux (AppImage)** | \`Xmemos-v${APP_VERSION}-linux-{x86_64,aarch64}.AppImage\` | Built on Ubuntu 22.04 (\`glibc 2.35\`), stripped & lean (\`bundleMediaFramework: false\`); run \`chmod +x\` & execute offline |
           | **GNU/Linux (Flatpak)** | \`Xmemos-v${APP_VERSION}-linux-{x86_64,aarch64}.flatpak\` | Sandboxed GNOME 51 offline bundle (\`flatpak install --user ...\`), Portal file dialogs |
-          | **Windows 10/11 (Installer)** | \`Xmemos-v${APP_VERSION}-windows-x64-offline-setup.exe\` | NSIS LZMA installer with embedded Microsoft WebView2 Offline Installer (0 internet required) |
+          | **Windows 10/11 (Installer)** | \`Xmemos-v${APP_VERSION}-windows-x64-setup.exe\` | 100% offline lean NSIS LZMA installer (~5–6 MB, \`webviewInstallMode: skip\`, zero network calls; uses OS-preinstalled Windows 10/11 WebView2 Runtime) |
           | **Windows 10/11 (Portable)** | \`Xmemos-v${APP_VERSION}-windows-x64-portable.zip\` | Extract & run \`Xmemos.exe\`; self-contained \`./data/\` storage via \`portable.flag\` |
           | **macOS 12+** | \`Xmemos-v${APP_VERSION}-macos-{arm64,x64}.dmg\` | Native Apple Silicon (\`arm64\`) & Intel (\`x64\`) disk images |
 

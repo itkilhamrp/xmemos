@@ -5,6 +5,25 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.22] - 2026-11-25
+
+### Added
+- **Adaptive Debloated/Air-Gapped Windows WebView2 Startup Resolver (`src-tauri/src/main.rs`, `.github/workflows/windows-release.yml`, `README.md`, `docs/REPRODUCIBLE_BUILDS.md`)**:
+  - Added a zero-extra-crate Windows startup resolver (`windows_webview2::prepare_or_prompt`) that automatically detects a local portable **WebView2 Fixed Version Runtime** (`webview2\` next to `Xmemos.exe`) via `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER`, checks official Evergreen WebView2 Runtime registry keys (`{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, completely independent of the Microsoft Edge browser), and displays a clear native Win32 guidance dialog instead of crashing if an aggressive Windows debloater removed WebView2 Runtime completely.
+
+## [2.7.21] - 2026-11-25
+
+### Changed
+- **100% Zero-Network Offline & Lean Windows NSIS Installer (`src-tauri/tauri.conf.json`, `.github/workflows/release.yml`, `README.md`, `docs/REPRODUCIBLE_BUILDS.md`)**:
+  - Set `bundle.windows.webviewInstallMode.type` to `"skip"` (0 MB overhead, zero network requests during installation or runtime) so the ~5–6 MB NSIS installer is strictly 100% offline while leveraging the OS-preinstalled Microsoft Edge WebView2 Runtime on Windows 10/11.
+
+## [2.7.20] - 2026-11-25
+
+### Optimized
+- **Lean Windows Installer & GNU/Linux AppImage Bundle Sizing (`src-tauri/tauri.conf.json`, `.github/workflows/{linux,windows,release}.yml`, `README.md`, `docs/REPRODUCIBLE_BUILDS.md`)**:
+  - Switched Windows NSIS `webviewInstallMode.type` from `"offlineInstaller"` (which embedded the ~280 MB standalone Chromium WebView2 installer, inflating the setup binary to 289 MB) to Tauri v2's official lean default `"downloadBootstrapper"` (0 MB overhead; uses the OS-preinstalled WebView2 Runtime offline on Windows 10/11 and trims `Xmemos-v2.7.20-windows-x64-setup.exe` to ~5–6 MB).
+  - Disabled `bundle.linux.appimage.bundleMediaFramework` (`false`), removed `NO_STRIP: 'true'` inside the `ubuntu:22.04` AppImage container, and dropped unused GStreamer apt packages from `linux-release.yml` to eliminate ~50–65 MB of bundled GStreamer/FFmpeg bloat and strip bundled shared libraries cleanly.
+
 ## [2.7.19] - 2026-11-25
 
 ### Fixed

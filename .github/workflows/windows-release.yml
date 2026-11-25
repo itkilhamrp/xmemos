@@ -93,7 +93,7 @@ jobs:
           if (-not $nsisExe) {
             throw "ERROR: Windows NSIS offline installer not found."
           }
-          $installerDest = "dist-release\Xmemos-v$env:APP_VERSION-windows-x64-offline-setup.exe"
+          $installerDest = "dist-release\Xmemos-v$env:APP_VERSION-windows-x64-setup.exe"
           Copy-Item $nsisExe.FullName -Destination $installerDest -Force
 
           $portableDir = "dist-portable\Xmemos-v$env:APP_VERSION-portable"
@@ -108,9 +108,11 @@ jobs:
           - Run Xmemos.exe directly without installation.
           - Because portable.flag is present beside Xmemos.exe, all local databases,
             media attachments, and caches are stored self-contained inside ./data/.
-          - Requires Microsoft Edge WebView2 Runtime (pre-installed on Windows 11 and
-            updated Windows 10). For air-gapped Windows 10 PCs without WebView2, use
-            Xmemos-v$env:APP_VERSION-windows-x64-offline-setup.exe instead.
+          - Uses Microsoft Edge WebView2 Runtime (pre-installed on Windows 11 and
+            updated Windows 10; the Microsoft Edge browser itself is NOT required).
+          - Debloated / air-gapped Windows (WebView2 removed): extract Microsoft's
+            official WebView2 Fixed Version Runtime into a `webview2\` folder next
+            to Xmemos.exe — Xmemos auto-detects it and runs 100% offline.
           "@ | Set-Content -Path "$portableDir\README-PORTABLE.txt" -Encoding utf8
 
           python scripts/package-windows-portable.py

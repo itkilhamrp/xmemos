@@ -58,7 +58,7 @@
     ],
     "linux": {
       "appimage": {
-        "bundleMediaFramework": true
+        "bundleMediaFramework": false
       },
       "deb": {
         "files": {
@@ -68,7 +68,7 @@
     },
     "windows": {
       "webviewInstallMode": {
-        "type": "offlineInstaller"
+        "type": "skip"
       },
       "nsis": {
         "installMode": "both",
