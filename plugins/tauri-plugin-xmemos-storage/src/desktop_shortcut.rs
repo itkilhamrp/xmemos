@@ -124,7 +124,7 @@ fn parse_xdg_user_desktop_dir(home: &Path) -> Option<PathBuf> {
         let Some(rest) = line.strip_prefix("XDG_DESKTOP_DIR=") else {
             continue;
         };
-        let unquoted = rest.trim().trim_matches('"').trim_matches(''');
+        let unquoted = rest.trim().trim_matches(['"', '\'']);
         if unquoted.is_empty() {
             continue;
         }
@@ -143,19 +143,23 @@ fn parse_xdg_user_desktop_dir(home: &Path) -> Option<PathBuf> {
 }
 
 fn resolve_desktop_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    if let Ok(dir) = app.path().desktop_dir() {
-        if !dir.as_os_str().is_empty() {
-            return Some(dir);
-        }
+    if let Some(dir) = app
+        .path()
+        .desktop_dir()
+        .ok()
+        .filter(|d| !d.as_os_str().is_empty())
+    {
+        return Some(dir);
     }
 
     #[cfg(target_os = "linux")]
     {
-        if let Some(env_dir) = std::env::var_os("XDG_DESKTOP_DIR").filter(|v| !v.is_empty()) {
-            let p = PathBuf::from(env_dir);
-            if p.is_absolute() {
-                return Some(p);
-            }
+        if let Some(p) = std::env::var_os("XDG_DESKTOP_DIR")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+        {
+            return Some(p);
         }
         let home = app
             .path()
@@ -173,11 +177,12 @@ fn resolve_desktop_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
 
     #[cfg(target_os = "windows")]
     {
-        if let Some(onedrive) = std::env::var_os("OneDrive").filter(|v| !v.is_empty()) {
-            let candidate = PathBuf::from(onedrive).join("Desktop");
-            if candidate.is_dir() {
-                return Some(candidate);
-            }
+        if let Some(candidate) = std::env::var_os("OneDrive")
+            .filter(|v| !v.is_empty())
+            .map(|v| PathBuf::from(v).join("Desktop"))
+            .filter(|p| p.is_dir())
+        {
+            return Some(candidate);
         }
         if let Some(profile) = std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()) {
             return Some(PathBuf::from(profile).join("Desktop"));
@@ -327,19 +332,18 @@ fn create_linux_desktop_entry<R: Runtime>(
     );
 
     let suggested_name = format!("{file_stem}.desktop");
-    if let Some(dir) = desktop_dir {
-        if fs::create_dir_all(dir).is_ok() {
-            let dest = dir.join(&suggested_name);
-            if fs::write(&dest, &desktop_content).is_ok() {
-                let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
-                return Ok(CreateMemoShortcutResponse {
-                    created: true,
-                    unsupported: false,
-                    path: Some(dest.to_string_lossy().to_string()),
-                    message: None,
-                });
-            }
-        }
+    if let Some(dest) = desktop_dir
+        .filter(|dir| fs::create_dir_all(dir).is_ok())
+        .map(|dir| dir.join(&suggested_name))
+        .filter(|dest| fs::write(dest, &desktop_content).is_ok())
+    {
+        let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
+        return Ok(CreateMemoShortcutResponse {
+            created: true,
+            unsupported: false,
+            path: Some(dest.to_string_lossy().to_string()),
+            message: None,
+        });
     }
 
     // Fallback (e.g. sandboxed Flatpak without xdg-desktop write permission): route via native portal Save dialog
@@ -357,10 +361,8 @@ fn create_linux_desktop_entry<R: Runtime>(
             message: Some("cancelled".to_string()),
         });
     };
-    if let Some(parent) = dest.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = dest.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)?;
     }
     fs::write(&dest, &desktop_content)?;
     let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
