@@ -23,7 +23,8 @@ use tauri::State;
 use crate::error::{AppError, AppResult};
 use crate::service::auth::{
     self, get_require_password_after_sign_out, get_user_lock_config, hash_password,
-    require_authenticated_user, set_user_lock_config, validate_username, verify_password,
+    normalize_username, require_authenticated_user, set_user_lock_config, validate_username,
+    verify_password,
     verify_user_pin, UserLockConfig,
 };
 use crate::state::AppState;
@@ -109,7 +110,8 @@ pub fn auth_get_status(state: State<'_, AppState>) -> AppResult<AuthStatus> {
 
 #[tauri::command]
 pub fn auth_setup_host(state: State<'_, AppState>, payload: SignUpPayload) -> AppResult<User> {
-    validate_username(&payload.username)?;
+    let normalized_username = normalize_username(&payload.username);
+    validate_username(&normalized_username)?;
     let password_hash = hash_password(&payload.password)?;
 
     let user = state.with_memos_db(|conn| {
@@ -121,13 +123,13 @@ pub fn auth_setup_host(state: State<'_, AppState>, payload: SignUpPayload) -> Ap
         user::create_user(
             conn,
             &CreateUserInput {
-                username: payload.username.trim().to_string(),
+                username: normalized_username.clone(),
                 role: "HOST".to_string(),
                 email: payload.email.unwrap_or_default(),
                 nickname: payload
                     .nickname
                     .filter(|s| !s.trim().is_empty())
-                    .unwrap_or_else(|| payload.username.trim().to_string()),
+                    .unwrap_or_else(|| normalized_username.clone()),
                 password_hash,
                 avatar_url: String::new(),
                 description: String::new(),
@@ -141,7 +143,8 @@ pub fn auth_setup_host(state: State<'_, AppState>, payload: SignUpPayload) -> Ap
 
 #[tauri::command]
 pub fn auth_sign_up(state: State<'_, AppState>, payload: SignUpPayload) -> AppResult<User> {
-    validate_username(&payload.username)?;
+    let normalized_username = normalize_username(&payload.username);
+    validate_username(&normalized_username)?;
     let password_hash = hash_password(&payload.password)?;
 
     let user = state.with_memos_db(|conn| {
@@ -153,7 +156,7 @@ pub fn auth_sign_up(state: State<'_, AppState>, payload: SignUpPayload) -> AppRe
                 "User registration is disabled by workspace host".to_string(),
             ));
         }
-        if user::get_user_by_username(conn, payload.username.trim())?.is_some() {
+        if user::get_user_by_username(conn, &normalized_username)?.is_some() {
             return Err(AppError::Validation("Username already exists".to_string()));
         }
 
@@ -161,13 +164,13 @@ pub fn auth_sign_up(state: State<'_, AppState>, payload: SignUpPayload) -> AppRe
         user::create_user(
             conn,
             &CreateUserInput {
-                username: payload.username.trim().to_string(),
+                username: normalized_username.clone(),
                 role: role.to_string(),
                 email: payload.email.unwrap_or_default(),
                 nickname: payload
                     .nickname
                     .filter(|s| !s.trim().is_empty())
-                    .unwrap_or_else(|| payload.username.trim().to_string()),
+                    .unwrap_or_else(|| normalized_username.clone()),
                 password_hash,
                 avatar_url: String::new(),
                 description: String::new(),
@@ -182,7 +185,7 @@ pub fn auth_sign_up(state: State<'_, AppState>, payload: SignUpPayload) -> AppRe
 #[tauri::command]
 pub fn auth_sign_in(state: State<'_, AppState>, payload: SignInPayload) -> AppResult<User> {
     let record = state
-        .with_memos_db(|conn| user::get_user_with_hash_by_username(conn, payload.username.trim()))?
+        .with_memos_db(|conn| user::get_user_with_hash_by_username(conn, &normalize_username(&payload.username)))?
         .ok_or_else(|| AppError::Unauthorized("Invalid username or password".to_string()))?;
 
     if record.user.row_status != "NORMAL" {

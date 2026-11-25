@@ -31,6 +31,7 @@
 
 	import { shortcutApi } from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
+	import { initKeyboardViewportSync } from '#lib/utils/keyboard.svelte.ts';
 	import { systemApi } from '#lib/api/system.ts';
 	import { authState } from '#lib/state/auth.svelte.ts';
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
@@ -73,13 +74,16 @@
 	}
 
 	onMount(() => {
-		// Reveal main window strictly after the first real UI frame is painted (zero gray/white/black flash)
-		requestAnimationFrame(() => {
+		// Desktop-only zero-flash window reveal (Android WebView renders immediately without hidden-window IPC)
+		if (isDesktopTauri()) {
 			requestAnimationFrame(() => {
-				void systemApi.showMainWindow().catch(() => {});
+				requestAnimationFrame(() => {
+					void systemApi.showMainWindow().catch(() => {});
+				});
 			});
-		});
+		}
 
+		const stopKeyboardSync = initKeyboardViewportSync();
 		let unlistenShortcut: (() => void) | null = null;
 		let unlistenMainOpen: (() => void) | null = null;
 		const handleVisibilityResume = () => {
@@ -92,16 +96,21 @@
 		void (async () => {
 			await authState.refresh();
 			if (!authState.hasHost && page.url.pathname !== '/auth') {
-				await goto('/auth');
+				await goto('/auth', { replaceState: true });
 				return;
 			}
-			await openPendingShortcutMemo();
-			unlistenShortcut = await shortcutApi.onMemoShortcutOpened((memoUid) => {
-				if (authState.hasHost) {
-					void goto(`/memo/${encodeURIComponent(memoUid)}`);
-				}
-			});
-			if (isTauri() && !isStickyRoute) {
+			// Non-blocking parallel shortcut & desktop-event wiring for instant mobile startup
+			void openPendingShortcutMemo();
+			void shortcutApi
+				.onMemoShortcutOpened((memoUid) => {
+					if (authState.hasHost) {
+						void goto(`/memo/${encodeURIComponent(memoUid)}`);
+					}
+				})
+				.then((fn) => {
+					unlistenShortcut = fn;
+				});
+			if (isDesktopTauri() && !isStickyRoute) {
 				try {
 					unlistenMainOpen = await getCurrentWindow().listen<string>(
 						'xmemos:navigate-main',
@@ -113,13 +122,14 @@
 						}
 					);
 				} catch {
-					// Ignore event listener errors outside Tauri
+					// Ignore event listener errors outside Desktop Tauri
 				}
 			}
 		})();
 
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityResume);
+			stopKeyboardSync();
 			unlistenShortcut?.();
 			unlistenMainOpen?.();
 		};
@@ -347,7 +357,9 @@
 		<!-- Root-mounted Official Memos Mini-Map Location Preview Popover (immune to card backdrop-filter) -->
 		<LocationPreviewPopover />
 		<TimelineDisplayPopover />
-		<KeyboardShortcutsModal />
+		{#if isDesktopTauri()}
+			<KeyboardShortcutsModal />
+		{/if}
 	{/if}
 
 	<PinLockOverlay />

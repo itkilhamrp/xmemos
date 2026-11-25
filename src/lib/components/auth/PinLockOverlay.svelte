@@ -27,6 +27,7 @@
 	import { i18n } from '#lib/i18n/index.svelte.ts';
 	import { authState } from '#lib/state/auth.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
+	import { scrollFieldIntoSafeView } from '#lib/utils/keyboard.svelte.ts';
 	import { handlePinKeydown, isValidSixDigitPin, PIN_LENGTH, PIN_PATTERN, sanitizePinInput } from '#lib/utils/pin.ts';
 	import { supportsAndroidBiometric } from '#lib/utils/platform.ts';
 
@@ -96,12 +97,13 @@
 
 {#if authState.isLocked}
 	<div
-		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-6 backdrop-blur-2xl"
+		class="fixed right-0 left-0 z-[72] flex items-center justify-center overflow-y-auto bg-black/75 p-6"
+		style="top: var(--xm-vvt, 0px); height: var(--xm-vvh, 100dvh);"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="pin-lock-heading"
 	>
-		<div class="glass-elevated w-full max-w-sm space-y-4 rounded-3xl p-6 text-center">
+		<div class="xm-kb-sheet-panel w-full max-w-sm space-y-4 rounded-3xl p-6 text-center">
 			<div
 				class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--xm-accent-border)] bg-[var(--xm-accent-soft)] text-[var(--xm-accent)]"
 			>
@@ -119,12 +121,14 @@
 						id="pin-lock-input"
 						type="password"
 						inputmode="numeric"
+						enterkeyhint="done"
 						pattern={PIN_PATTERN}
 						autocomplete="one-time-code"
 						maxlength={PIN_LENGTH}
 						value={pin}
 						onkeydown={handlePinKeydown}
 						oninput={handlePinInput}
+						onfocus={(e) => scrollFieldIntoSafeView(e.currentTarget)}
 						placeholder={i18n.t('pin.placeholder')}
 						aria-invalid={Boolean(errorMsg)}
 						class="xm-input text-center text-xl tracking-[0.4em] tabular-nums"

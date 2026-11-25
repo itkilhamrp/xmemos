@@ -131,7 +131,19 @@ jobs:
           if [ ! -d "src-tauri/gen/android" ]; then
             pnpm tauri android init --ci
           fi
+          # Generate all Android mipmap launcher & adaptive icons from canonical Liquid Glass icon
+          pnpm tauri icon src-tauri/icons/icon.png
           pnpm version:sync
+          # Keep R8 in compatibility mode & preserve Tauri JNI/plugin/widget classes cleanly
+          echo "android.enableR8.fullMode=false" >> src-tauri/gen/android/gradle.properties
+          cat << 'PROGUARD_EOF' >> src-tauri/gen/android/app/proguard-rules.pro
+
+          # Xmemos & Tauri v2 Android runtime keep rules
+          -keep class app.tauri.** { *; }
+          -keep class org.xmemos.** { *; }
+          -keepclassmembers class org.xmemos.storage.** { *; }
+          -keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+          PROGUARD_EOF
           cat << 'GRADLE_EOF' >> src-tauri/gen/android/app/build.gradle.kts
 
           // Xmemos deterministic reproducible APK packaging rules

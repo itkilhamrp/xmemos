@@ -97,7 +97,7 @@ pub fn create_user(conn: &Connection, input: &CreateUserInput) -> AppResult<User
         params![
             now,
             now,
-            input.username,
+            input.username.trim().to_ascii_lowercase(),
             input.role,
             input.email,
             input.nickname,
@@ -127,8 +127,8 @@ pub fn get_user_by_username(conn: &Connection, username: &str) -> AppResult<Opti
     let user = conn
         .query_row(
             "SELECT id, created_ts, updated_ts, row_status, username, role, email, nickname, avatar_url, description
-             FROM user WHERE username = ?1",
-            params![username],
+             FROM user WHERE LOWER(username) = LOWER(?1)",
+            params![username.trim()],
             map_user,
         )
         .optional()?;
@@ -142,8 +142,8 @@ pub fn get_user_with_hash_by_username(
     let row = conn
         .query_row(
             "SELECT id, created_ts, updated_ts, row_status, username, role, email, nickname, avatar_url, description, password_hash
-             FROM user WHERE username = ?1",
-            params![username],
+             FROM user WHERE LOWER(username) = LOWER(?1)",
+            params![username.trim()],
             |r| {
                 Ok(UserWithHash {
                     user: map_user(r)?,
@@ -192,7 +192,13 @@ pub fn update_user(conn: &Connection, input: &UpdateUserInput) -> AppResult<User
         .ok_or_else(|| AppError::NotFound(format!("User {} not found", input.id)))?;
 
     let now = chrono::Utc::now().timestamp();
-    let username = input.username.as_deref().unwrap_or(&existing.user.username);
+    let normalized_username = input
+        .username
+        .as_deref()
+        .map(|u| u.trim().to_ascii_lowercase());
+    let username = normalized_username
+        .as_deref()
+        .unwrap_or(&existing.user.username);
     let role = input.role.as_deref().unwrap_or(&existing.user.role);
     let email = input.email.as_deref().unwrap_or(&existing.user.email);
     let nickname = input.nickname.as_deref().unwrap_or(&existing.user.nickname);

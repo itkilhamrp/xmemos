@@ -49,8 +49,11 @@
     </p>
   </description>
   <releases>
+    <release version="2.7.24" date="2026-11-25">
+      <url type="details">https://github.com/itkilhamrp/xmemos/blob/main/CHANGELOG.md#2724---2026-11-25</url>
+    </release>
     <!-- Auto-synced from package.json and CHANGELOG.md via `pnpm version:sync` -->
-    <release version="2.7.22" date="2026-11-25">
+    <release version="2.7.23" date="2026-11-25">
       <url type="details">https://github.com/xmemos/xmemos/blob/main/CHANGELOG.md</url>
     </release>
   </releases>

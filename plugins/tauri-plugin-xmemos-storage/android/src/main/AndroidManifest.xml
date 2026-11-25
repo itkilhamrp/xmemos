@@ -5,7 +5,7 @@
     <application>
         <receiver
             android:name="org.xmemos.storage.XmemosMemoWidgetProvider"
-            android:exported="false"
+            android:exported="true"
             android:label="Xmemos Sticky Note">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

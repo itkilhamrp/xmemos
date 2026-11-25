@@ -49,7 +49,7 @@
 		busy = true;
 		try {
 			await userApi.adminCreate({
-				username: username.trim(),
+				username: username.trim().toLowerCase(),
 				password,
 				role,
 				nickname: nickname.trim() || undefined
@@ -83,8 +83,14 @@
 				<input
 					id="new-user-username"
 					type="text"
+					autocapitalize="none"
+					autocorrect="off"
+					spellcheck={false}
 					required
-					bind:value={username}
+					value={username}
+					oninput={(e) => {
+						username = e.currentTarget.value.toLowerCase();
+					}}
 					placeholder={i18n.t('auth.username')}
 					class="xm-input"
 				/>

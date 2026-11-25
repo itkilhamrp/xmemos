@@ -617,11 +617,11 @@
 </script>
 
 <Sheet
-	class="mx-auto w-full max-w-2xl !z-[60] glass-elevated"
+	class="xm-kb-editor-sheet mx-auto w-full max-w-2xl !z-[60] glass-elevated"
 	{opened}
 	onBackdropClick={onClose}
 >
-	<div class="flex max-h-[90dvh] flex-col overflow-hidden">
+	<div class="flex flex-col overflow-hidden" style="max-height: calc(var(--xm-vvh, 100dvh) - 16px);">
 		<!-- Fixed Header: Title, Close, Write/Preview Toggle, and Pinned Formatting Toolbar -->
 		<div class="shrink-0 space-y-2.5 border-b border-[var(--xm-divider)] px-4 pt-3.5 pb-3">
 			<div class="flex items-center justify-between gap-2">

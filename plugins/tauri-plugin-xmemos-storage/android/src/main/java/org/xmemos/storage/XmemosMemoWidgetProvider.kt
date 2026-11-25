@@ -43,12 +43,13 @@ class XmemosMemoWidgetProvider : AppWidgetProvider() {
             title: String,
             preview: String
         ) {
+            // Use commit() so the pending memo is guaranteed persisted before the launcher invokes onUpdate()
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_PENDING_UID, memoUid)
                 .putString(KEY_PENDING_TITLE, title)
                 .putString(KEY_PENDING_PREVIEW, preview)
-                .apply()
+                .commit()
         }
 
         fun buildRemoteViews(
@@ -65,20 +66,24 @@ class XmemosMemoWidgetProvider : AppWidgetProvider() {
                 preview.ifBlank { title.ifBlank { "Tap to open memo in Xmemos" } }
             )
 
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            if (launchIntent != null && memoUid.isNotBlank()) {
-                launchIntent.action = XmemosStoragePlugin.ACTION_OPEN_MEMO_SHORTCUT
-                launchIntent.putExtra(XmemosStoragePlugin.EXTRA_MEMO_UID, memoUid)
-                launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-                val pendingIntent = PendingIntent.getActivity(
-                    context,
-                    requestCode,
-                    launchIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.sticky_widget_root, pendingIntent)
+            runCatching {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                if (launchIntent != null) {
+                    if (memoUid.isNotBlank()) {
+                        launchIntent.action = XmemosStoragePlugin.ACTION_OPEN_MEMO_SHORTCUT
+                        launchIntent.putExtra(XmemosStoragePlugin.EXTRA_MEMO_UID, memoUid)
+                    }
+                    launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    val pendingIntent = PendingIntent.getActivity(
+                        context,
+                        requestCode,
+                        launchIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setOnClickPendingIntent(R.id.sticky_widget_root, pendingIntent)
+                }
             }
             return views
         }
@@ -111,7 +116,7 @@ class XmemosMemoWidgetProvider : AppWidgetProvider() {
                     .putString(uidKey, uid)
                     .putString(titleKey, title)
                     .putString(previewKey, preview)
-                    .apply()
+                    .commit()
             }
 
             val views = buildRemoteViews(

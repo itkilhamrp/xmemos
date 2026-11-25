@@ -46,9 +46,6 @@ impl AppState {
     ) -> AppResult<Self> {
         fs::create_dir_all(&db_dir)?;
         fs::create_dir_all(media_root.join("assets").join("avatars"))?;
-        fs::create_dir_all(media_root.join("backups"))?;
-        fs::create_dir_all(media_root.join("temp"))?;
-        fs::create_dir_all(cache_dir.join("thumbs"))?;
 
         let memos_db_path = db_dir.join("memos_prod.db");
         let local_db_path = db_dir.join("xmemos_local.db");
@@ -95,6 +92,9 @@ impl AppState {
     /// Runs non-blocking housekeeping (stale temp cleanup + FTS5 parity check) on a background thread
     /// after the application window is already open and interactive.
     pub fn run_background_startup_maintenance(&self) {
+        let _ = fs::create_dir_all(self.media_root.join("backups"));
+        let _ = fs::create_dir_all(self.media_root.join("temp"));
+        let _ = fs::create_dir_all(self.cache_dir.join("thumbs"));
         let temp_dir = self.media_root.join("temp");
         if let Ok(entries) = fs::read_dir(&temp_dir) {
             for entry in entries.flatten() {

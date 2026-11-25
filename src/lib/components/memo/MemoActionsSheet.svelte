@@ -21,7 +21,6 @@
 
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Actions, ActionsButton, ActionsGroup, ActionsLabel } from 'konsta/svelte';
 	import {
 		Archive,
 		BookmarkPlus,
@@ -160,75 +159,41 @@
 		memoActionsState.close();
 	}
 
-	function handleDesktopKeydown(event: KeyboardEvent): void {
-		if (memoActionsState.mode !== 'desktop' || !memoActionsState.opened) return;
+	function handleWindowKeydown(event: KeyboardEvent): void {
+		if (!memoActionsState.opened) return;
 		if (event.key === 'Escape') {
 			event.preventDefault();
-			memoActionsState.close();
-			return;
-		}
-		if (!menuEl) return;
-		const items = Array.from(menuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
-		if (items.length === 0) return;
-		const currentIdx = items.indexOf(document.activeElement as HTMLButtonElement);
-
-		if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			items[(currentIdx + 1) % items.length]?.focus();
-		} else if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			items[(currentIdx - 1 + items.length) % items.length]?.focus();
-		} else if (event.key === 'Home') {
-			event.preventDefault();
-			items[0]?.focus();
-		} else if (event.key === 'End') {
-			event.preventDefault();
-			items[items.length - 1]?.focus();
-		}
-	}
-
-	function handleDesktopViewportChange(): void {
-		if (memoActionsState.mode === 'desktop' && memoActionsState.opened) {
 			memoActionsState.close();
 		}
 	}
 </script>
 
 <svelte:window
-	onkeydown={handleDesktopKeydown}
-	onresize={handleDesktopViewportChange}
-	onscroll={handleDesktopViewportChange}
+	onkeydown={handleWindowKeydown}
+	onresize={() => {
+		if (memoActionsState.mode === 'desktop' && memoActionsState.opened) {
+			memoActionsState.close();
+		}
+	}}
 />
 
-{#if memoActionsState.active}
+{#if memoActionsState.active && memoActionsState.opened}
 	{@const req = memoActionsState.active}
-	{@const hasRestoreOrArchive = Boolean(req.canManage && (req.onRestore || req.onArchive))}
-	{@const hasDelete = Boolean(req.canManage && req.onDelete)}
-
 	{#if memoActionsState.mode === 'desktop'}
-		<!-- Desktop (>= 1024px): Authentic Apple HIG macOS 2026 Liquid Glass Floating Pull-Down Menu -->
-		{#if memoActionsState.opened}
-			<!-- Transparent click-outside catcher (zero backdrop dimming, matching native macOS) -->
-			<div
-				class="fixed inset-0 z-[75]"
-				aria-hidden="true"
-				onmousedown={() => memoActionsState.close()}
-				onwheel={() => memoActionsState.close()}
-			></div>
-		{/if}
-
+		<!-- Desktop (>= 1024px): Native macOS anchored floating menu -->
+		<button
+			type="button"
+			aria-label={i18n.t('common.close')}
+			class="fixed inset-0 z-[79] cursor-default bg-transparent"
+			onclick={() => memoActionsState.close()}
+		></button>
 		<div
 			bind:this={menuEl}
 			role="menu"
 			aria-label={i18n.t('memo.options')}
-			class="xm-macos-menu fixed z-[80] w-[216px] {memoActionsState.opened
-				? 'xm-macos-menu-open'
-				: 'pointer-events-none opacity-0 scale-95'}"
-			style="left: {desktopPos.left}px; top: {desktopPos.top}px; transform-origin: {desktopPos.flipUp
-				? 'bottom right'
-				: 'top right'};"
+			class="xm-macos-menu fixed z-[80] w-[216px] rounded-[12px] p-1.5"
+			style={`left: ${desktopPos.left}px; top: ${desktopPos.top}px; transform-origin: ${desktopPos.flipUp ? 'bottom right' : 'top right'};`}
 		>
-			<!-- Group 1: View & Edit -->
 			<button
 				type="button"
 				role="menuitem"
@@ -283,7 +248,6 @@
 
 			<div class="xm-macos-menu-sep" role="separator"></div>
 
-			<!-- Group 2: Copy & Export -->
 			<button
 				type="button"
 				role="menuitem"
@@ -322,7 +286,7 @@
 					onclick={openAsStickyNote}
 				>
 					<StickyNote class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
-					<span class="truncate">{i18n.t('sticky.open')}</span>
+					<span class="truncate">{i18n.t('memo.openStickyNote')}</span>
 				</button>
 			{/if}
 
@@ -333,11 +297,14 @@
 				onclick={pinMemoShortcut}
 			>
 				<BookmarkPlus class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
-				<span class="truncate">{i18n.t(isDesktopTauri() ? 'memo.addToDesktop' : 'memo.pinToHome')}</span>
+				<span class="truncate">
+					{i18n.t(isDesktopTauri() ? 'memo.addToDesktop' : 'memo.pinToHome')}
+				</span>
 			</button>
 
-			<!-- Group 3: Lifecycle & Destructive -->
-			{#if hasRestoreOrArchive || hasDelete}
+			{#if req.canManage && (req.onRestore || req.onArchive || req.onDelete)}
+				{@const hasRestoreOrArchive = Boolean(req.onRestore || req.onArchive)}
+				{@const hasDelete = Boolean(req.onDelete)}
 				<div class="xm-macos-menu-sep" role="separator"></div>
 
 				{#if req.canManage && req.onRestore}
@@ -397,117 +364,153 @@
 			{/if}
 		</div>
 	{:else}
-		<!-- Mobile & Tablet/iPad (< 1024px): Native Konsta UI v5 iOS ActionSheet (100% preserved) -->
-		<Actions
-			opened={memoActionsState.opened}
-			class="!z-[60]"
-			onBackdropClick={() => memoActionsState.close()}
+		<!-- Mobile & Tablet (< 1024px): Ultra-lightweight 60/120fps GPU-composited iOS Action Sheet -->
+		<div
+			class="xm-action-sheet-root fixed right-0 left-0 z-[75] flex items-end justify-center px-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+			style="top: var(--xm-vvt, 0px); height: var(--xm-vvh, 100dvh);"
+			role="dialog"
+			aria-modal="true"
+			aria-label={i18n.t('memo.options')}
 		>
-			<ActionsGroup>
-				<ActionsLabel>{i18n.t('memo.options')}</ActionsLabel>
-				<ActionsButton
-					onclick={() => {
-						const uid = req.view.memo.uid;
-						memoActionsState.close();
-						void goto(`/memo/${uid}`);
-					}}
+			<button
+				type="button"
+				aria-label={i18n.t('common.close')}
+				class="xm-action-sheet-scrim absolute inset-0"
+				onclick={() => memoActionsState.close()}
+			></button>
+
+			<div class="xm-action-sheet-stack relative z-10 w-full max-w-md space-y-2">
+				<div class="xm-action-sheet-card max-h-[72dvh] overflow-y-auto overscroll-contain">
+					<div class="px-4 py-2.5 text-center text-[12px] font-semibold tracking-wide xm-text-muted">
+						{i18n.t('memo.options')}
+					</div>
+
+					<button
+						type="button"
+						class="xm-action-sheet-btn"
+						onclick={() => {
+							const uid = req.view.memo.uid;
+							memoActionsState.close();
+							void goto(`/memo/${uid}`);
+						}}
+					>
+						<ExternalLink class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+						<span>{i18n.t('memo.openDetails')}</span>
+					</button>
+
+					{#if req.canManage && req.onPin}
+						<button
+							type="button"
+							class="xm-action-sheet-btn"
+							onclick={() => {
+								const fn = req.onPin;
+								const v = req.view;
+								memoActionsState.close();
+								fn?.(v);
+							}}
+						>
+							{#if req.view.memo.pinned}
+								<PinOff class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+							{:else}
+								<Pin class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+							{/if}
+							<span>{i18n.t(req.view.memo.pinned ? 'memo.unpin' : 'memo.pin')}</span>
+						</button>
+					{/if}
+
+					{#if req.canManage && req.onEdit}
+						<button
+							type="button"
+							class="xm-action-sheet-btn"
+							onclick={() => {
+								const fn = req.onEdit;
+								const v = req.view;
+								memoActionsState.close();
+								fn?.(v);
+							}}
+						>
+							<Pencil class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+							<span>{i18n.t('memo.edit')}</span>
+						</button>
+					{/if}
+
+					<button type="button" class="xm-action-sheet-btn" onclick={() => copyText(true)}>
+						<Copy class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+						<span>{i18n.t('memo.copyMarkdown')}</span>
+					</button>
+
+					<button type="button" class="xm-action-sheet-btn" onclick={() => copyText(false)}>
+						<FileText class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+						<span>{i18n.t('memo.copyPlainText')}</span>
+					</button>
+
+					<button type="button" class="xm-action-sheet-btn" onclick={exportShareCard}>
+						<ImageIcon class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+						<span>{i18n.t('memo.exportCard')}</span>
+					</button>
+
+					<button type="button" class="xm-action-sheet-btn" onclick={pinMemoShortcut}>
+						<BookmarkPlus class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+						<span>{i18n.t(isDesktopTauri() ? 'memo.addToDesktop' : 'memo.pinToHome')}</span>
+					</button>
+
+					{#if req.canManage && req.onRestore}
+						<button
+							type="button"
+							class="xm-action-sheet-btn"
+							onclick={() => {
+								const fn = req.onRestore;
+								const v = req.view;
+								memoActionsState.close();
+								fn?.(v);
+							}}
+						>
+							<RotateCcw class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+							<span>{i18n.t('common.restore')}</span>
+						</button>
+					{/if}
+
+					{#if req.canManage && req.onArchive}
+						<button
+							type="button"
+							class="xm-action-sheet-btn"
+							onclick={() => {
+								const fn = req.onArchive;
+								const v = req.view;
+								memoActionsState.close();
+								fn?.(v);
+							}}
+						>
+							<Archive class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
+							<span>{i18n.t('memo.archive')}</span>
+						</button>
+					{/if}
+
+					{#if req.canManage && req.onDelete}
+						<button
+							type="button"
+							class="xm-action-sheet-btn xm-action-sheet-btn-danger"
+							onclick={() => {
+								const fn = req.onDelete;
+								const v = req.view;
+								memoActionsState.close();
+								fn?.(v);
+							}}
+						>
+							<Trash2 class="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+							<span>{i18n.t('memo.delete')}</span>
+						</button>
+					{/if}
+				</div>
+
+				<button
+					type="button"
+					class="xm-action-sheet-cancel"
+					onclick={() => memoActionsState.close()}
 				>
-					{i18n.t('memo.openDetails')}
-				</ActionsButton>
-				{#if req.canManage && req.onPin}
-					<ActionsButton
-						onclick={() => {
-							const fn = req.onPin;
-							const v = req.view;
-							memoActionsState.close();
-							fn?.(v);
-						}}
-					>
-						{i18n.t(req.view.memo.pinned ? 'memo.unpin' : 'memo.pin')}
-					</ActionsButton>
-				{/if}
-				{#if req.canManage && req.onEdit}
-					<ActionsButton
-						onclick={() => {
-							const fn = req.onEdit;
-							const v = req.view;
-							memoActionsState.close();
-							fn?.(v);
-						}}
-					>
-						{i18n.t('memo.edit')}
-					</ActionsButton>
-				{/if}
-				<ActionsButton onclick={() => copyText(true)}>
-					<span class="flex items-center gap-2">
-						<Copy class="h-4 w-4" aria-hidden="true" />
-						{i18n.t('memo.copyMarkdown')}
-					</span>
-				</ActionsButton>
-				<ActionsButton onclick={() => copyText(false)}>
-					{i18n.t('memo.copyPlainText')}
-				</ActionsButton>
-				<ActionsButton onclick={exportShareCard}>
-					<span class="flex items-center gap-2">
-						<ImageIcon class="h-4 w-4" aria-hidden="true" />
-						{i18n.t('memo.exportCard')}
-					</span>
-				</ActionsButton>
-				<ActionsButton onclick={pinMemoShortcut}>
-					<span class="flex items-center gap-2">
-						<BookmarkPlus class="h-4 w-4" aria-hidden="true" />
-						{i18n.t(isDesktopTauri() ? 'memo.addToDesktop' : 'memo.pinToHome')}
-					</span>
-				</ActionsButton>
-				{#if req.canManage && req.onRestore}
-					<ActionsButton
-						onclick={() => {
-							const fn = req.onRestore;
-							const v = req.view;
-							memoActionsState.close();
-							fn?.(v);
-						}}
-					>
-						<span class="flex items-center gap-2">
-							<RotateCcw class="h-4 w-4" aria-hidden="true" />
-							{i18n.t('common.restore')}
-						</span>
-					</ActionsButton>
-				{/if}
-				{#if req.canManage && req.onArchive}
-					<ActionsButton
-						onclick={() => {
-							const fn = req.onArchive;
-							const v = req.view;
-							memoActionsState.close();
-							fn?.(v);
-						}}
-					>
-						<span class="flex items-center gap-2">
-							<Archive class="h-4 w-4" aria-hidden="true" />
-							{i18n.t('memo.archive')}
-						</span>
-					</ActionsButton>
-				{/if}
-				{#if req.canManage && req.onDelete}
-					<ActionsButton
-						class="!text-[#d70015] dark:!text-[#ff453a]"
-						onclick={() => {
-							const fn = req.onDelete;
-							const v = req.view;
-							memoActionsState.close();
-							fn?.(v);
-						}}
-					>
-						{i18n.t('memo.delete')}
-					</ActionsButton>
-				{/if}
-			</ActionsGroup>
-			<ActionsGroup>
-				<ActionsButton bold onclick={() => memoActionsState.close()}>
 					{i18n.t('common.cancel')}
-				</ActionsButton>
-			</ActionsGroup>
-		</Actions>
+				</button>
+			</div>
+		</div>
 	{/if}
 {/if}

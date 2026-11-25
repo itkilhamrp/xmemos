@@ -59,7 +59,8 @@
 
 	async function handleSubmit(e: SubmitEvent): Promise<void> {
 		e.preventDefault();
-		if (!username.trim() || !password) {
+		const normalizedUsername = normalizedUsername.toLowerCase();
+		if (!normalizedUsername || !password) {
 			toastState.show(i18n.t('auth.requiredFields'), 'info');
 			return;
 		}
@@ -76,13 +77,13 @@
 		busy = true;
 		try {
 			if (isHostSetup) {
-				await authState.setupHost(username.trim(), password, nickname.trim() || undefined);
+				await authState.setupHost(normalizedUsername, password, nickname.trim() || undefined);
 				toastState.show(i18n.t('auth.hostCreated'), 'success');
 			} else if (mode === 'signup') {
-				await authState.signUp(username.trim(), password, nickname.trim() || undefined);
+				await authState.signUp(normalizedUsername, password, nickname.trim() || undefined);
 				toastState.show(i18n.t('auth.accountCreated'), 'success');
 			} else {
-				await authState.signIn(username.trim(), password);
+				await authState.signIn(normalizedUsername, password);
 				toastState.show(i18n.t('auth.signedIn'), 'success');
 			}
 			confirmPassword = '';
@@ -137,8 +138,14 @@
 					id="auth-username"
 					type="text"
 					autocomplete="username"
+					autocapitalize="none"
+					autocorrect="off"
+					spellcheck={false}
 					required
-					bind:value={username}
+					value={username}
+					oninput={(e) => {
+						username = e.currentTarget.value.toLowerCase();
+					}}
 					placeholder={i18n.t('auth.usernamePlaceholder')}
 					class="xm-input"
 				/>

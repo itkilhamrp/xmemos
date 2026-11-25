@@ -22,7 +22,8 @@ use tauri::State;
 
 use crate::error::{AppError, AppResult};
 use crate::service::auth::{
-    hash_password, require_admin_or_host, require_authenticated_user, validate_username,
+    hash_password, normalize_username, require_admin_or_host, require_authenticated_user,
+    validate_username,
 };
 use crate::state::AppState;
 use crate::store::memo::{self, MemoFilter};
@@ -71,7 +72,8 @@ pub fn user_list(state: State<'_, AppState>, include_archived: Option<bool>) -> 
 pub fn user_get_profile(state: State<'_, AppState>, username: String) -> AppResult<UserProfileStats> {
     let viewer_id = state.current_user_id()?;
     state.with_memos_db(|conn| {
-        let u = user::get_user_by_username(conn, &username)?
+        let normalized = normalize_username(&username);
+        let u = user::get_user_by_username(conn, &normalized)?
             .ok_or_else(|| AppError::NotFound(format!("User '@{username}' not found")))?;
         let memos = memo::list_memos(
             conn,
@@ -109,7 +111,8 @@ pub fn user_admin_create(
     payload: AdminCreateUserPayload,
 ) -> AppResult<User> {
     let actor = require_admin_or_host(&state)?;
-    validate_username(&payload.username)?;
+    let normalized_username = normalize_username(&payload.username);
+    validate_username(&normalized_username)?;
 
     if payload.role != "USER" && payload.role != "ADMIN" {
         return Err(AppError::Validation(
@@ -124,19 +127,19 @@ pub fn user_admin_create(
 
     let password_hash = hash_password(&payload.password)?;
     state.with_memos_db(|conn| {
-        if user::get_user_by_username(conn, payload.username.trim())?.is_some() {
+        if user::get_user_by_username(conn, &normalized_username)?.is_some() {
             return Err(AppError::Validation("Username already exists".to_string()));
         }
         user::create_user(
             conn,
             &CreateUserInput {
-                username: payload.username.trim().to_string(),
+                username: normalized_username.clone(),
                 role: payload.role,
                 email: payload.email.unwrap_or_default(),
                 nickname: payload
                     .nickname
                     .filter(|s| !s.trim().is_empty())
-                    .unwrap_or_else(|| payload.username.trim().to_string()),
+                    .unwrap_or_else(|| normalized_username.clone()),
                 password_hash,
                 avatar_url: String::new(),
                 description: String::new(),
@@ -156,7 +159,8 @@ pub fn user_update(state: State<'_, AppState>, payload: UpdateProfilePayload) ->
         ));
     }
 
-    if let Some(ref uname) = payload.username {
+    let normalized_username = payload.username.as_deref().map(normalize_username);
+    if let Some(ref uname) = normalized_username {
         validate_username(uname)?;
     }
 
@@ -172,11 +176,18 @@ pub fn user_update(state: State<'_, AppState>, payload: UpdateProfilePayload) ->
     };
 
     state.with_memos_db(|conn| {
+        if let Some(ref uname) = normalized_username {
+            if let Some(existing) = user::get_user_by_username(conn, uname)? {
+                if existing.id != target_id {
+                    return Err(AppError::Validation("Username already exists".to_string()));
+                }
+            }
+        }
         user::update_user(
             conn,
             &UpdateUserInput {
                 id: target_id,
-                username: payload.username,
+                username: normalized_username,
                 role: allowed_role,
                 email: payload.email,
                 nickname: payload.nickname,

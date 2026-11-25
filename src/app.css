@@ -1170,3 +1170,287 @@ input[type='search']::-webkit-search-results-decoration {
 	border-color: rgba(255, 255, 255, 0.16);
 	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
+/* ==========================================================================
+   Silky 60/120fps GPU-Composited iOS 26 Floating Pill Bottom Tabbar
+   ========================================================================== */
+
+.xm-ios-tabbar-shell {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 30;
+	padding: 0 14px max(10px, env(safe-area-inset-bottom));
+	pointer-events: none;
+	transform: translate3d(0, 0, 0);
+	transition:
+		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 180ms ease-out;
+	will-change: transform, opacity;
+}
+
+.xm-ios-tabbar-shell.xm-ios-tabbar-hidden {
+	transform: translate3d(0, 120%, 0);
+	opacity: 0;
+	pointer-events: none;
+}
+
+.xm-ios-tabbar-track {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	align-items: center;
+	margin: 0 auto;
+	max-width: 440px;
+	height: 60px;
+	padding: 4px;
+	border-radius: 9999px;
+	pointer-events: auto;
+	touch-action: pan-y;
+	user-select: none;
+	-webkit-user-select: none;
+	contain: layout style;
+	background: rgba(252, 252, 254, 0.92);
+	backdrop-filter: blur(14px) saturate(160%);
+	-webkit-backdrop-filter: blur(14px) saturate(160%);
+	border: 1px solid rgba(15, 23, 42, 0.09);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+		0 10px 28px rgba(15, 23, 42, 0.13),
+		0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.dark .xm-ios-tabbar-track {
+	background: rgba(28, 28, 32, 0.92);
+	border-color: rgba(255, 255, 255, 0.12);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+		0 12px 32px rgba(0, 0, 0, 0.52),
+		0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+.xm-ios-tabbar-pill {
+	position: absolute;
+	top: 4px;
+	bottom: 4px;
+	left: 4px;
+	border-radius: 9999px;
+	pointer-events: none;
+	background: rgba(0, 122, 255, 0.12);
+	border: 1px solid rgba(0, 122, 255, 0.16);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.72),
+		0 2px 8px rgba(0, 122, 255, 0.1);
+	transition: transform 290ms cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: transform;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+}
+
+.dark .xm-ios-tabbar-pill {
+	background: rgba(10, 132, 255, 0.22);
+	border-color: rgba(10, 132, 255, 0.28);
+	box-shadow:
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.14),
+		0 2px 10px rgba(0, 0, 0, 0.32);
+}
+
+.xm-ios-tabbar-pill.is-dragging {
+	transition: none;
+}
+
+.xm-ios-tabbar-item {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	height: 52px;
+	padding: 0 2px;
+	border: 0;
+	background: transparent;
+	border-radius: 9999px;
+	color: var(--xm-text-secondary);
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+	transition:
+		color 180ms ease-out,
+		transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.xm-ios-tabbar-item:active {
+	transform: scale(0.94);
+}
+
+.xm-ios-tabbar-item.is-active {
+	color: var(--xm-accent);
+}
+
+.xm-ios-tabbar-icon {
+	transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.xm-ios-tabbar-item.is-active .xm-ios-tabbar-icon {
+	transform: translate3d(0, -1px, 0) scale(1.04);
+}
+
+.xm-ios-tabbar-label {
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ==========================================================================
+   Android Keyboard-Safe Modals, Sheets & Lightweight iOS Action Sheet
+   ========================================================================== */
+
+@keyframes xmFadeInFast {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes xmSheetSlideUp {
+	from {
+		opacity: 0;
+		transform: translate3d(0, 22px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+.xm-kb-modal-backdrop {
+	animation: xmFadeInFast 140ms ease-out;
+	contain: layout style;
+}
+
+.xm-kb-sheet-panel {
+	background: rgba(252, 252, 254, 0.98);
+	border: 1px solid rgba(15, 23, 42, 0.1);
+	box-shadow:
+		0 20px 54px rgba(15, 23, 42, 0.22),
+		0 4px 16px rgba(15, 23, 42, 0.08);
+	animation: xmSheetSlideUp 200ms cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: transform, opacity;
+	backface-visibility: hidden;
+	contain: layout style;
+}
+
+.dark .xm-kb-sheet-panel {
+	background: rgba(28, 28, 32, 0.98);
+	border-color: rgba(255, 255, 255, 0.13);
+	box-shadow:
+		0 24px 60px rgba(0, 0, 0, 0.65),
+		0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Keep MemoEditor Konsta Sheet smoothly positioned above Android soft keyboard */
+.xm-kb-open .xm-kb-editor-sheet {
+	bottom: var(--xm-kb-inset, 0px) !important;
+	transition: none !important;
+}
+
+.xm-action-sheet-root {
+	contain: layout style;
+}
+
+.xm-action-sheet-scrim {
+	background: rgba(0, 0, 0, 0.42);
+	animation: xmFadeInFast 140ms ease-out;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.xm-action-sheet-stack {
+	animation: xmSheetSlideUp 200ms cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: transform, opacity;
+	backface-visibility: hidden;
+}
+
+.xm-action-sheet-card {
+	border-radius: 16px;
+	background: rgba(252, 252, 254, 0.97);
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	box-shadow: 0 12px 34px rgba(15, 23, 42, 0.18);
+	contain: layout paint;
+}
+
+.dark .xm-action-sheet-card {
+	background: rgba(34, 34, 38, 0.97);
+	border-color: rgba(255, 255, 255, 0.11);
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.56);
+}
+
+.xm-action-sheet-btn {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 50px;
+	padding: 0 16px;
+	border: 0;
+	border-top: 1px solid var(--xm-divider);
+	background: transparent;
+	color: var(--xm-text-primary);
+	font-size: 16px;
+	font-weight: 500;
+	line-height: 1.25;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+	transition: background-color 110ms ease-out;
+}
+
+.xm-action-sheet-btn:active {
+	background: var(--xm-surface-hover);
+}
+
+.xm-action-sheet-btn-danger {
+	color: #d70015;
+}
+
+.dark .xm-action-sheet-btn-danger {
+	color: #ff453a;
+}
+
+.xm-action-sheet-cancel {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	min-height: 52px;
+	border-radius: 16px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	background: rgba(255, 255, 255, 0.98);
+	color: var(--xm-accent);
+	font-size: 16px;
+	font-weight: 700;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+	transition:
+		background-color 110ms ease-out,
+		transform 110ms ease-out;
+}
+
+.dark .xm-action-sheet-cancel {
+	background: rgba(42, 42, 46, 0.98);
+	border-color: rgba(255, 255, 255, 0.11);
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+.xm-action-sheet-cancel:active {
+	transform: scale(0.985);
+	background: var(--xm-surface-hover);
+}

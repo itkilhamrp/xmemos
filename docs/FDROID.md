@@ -38,7 +38,7 @@ Builds:
     prebuild:
       - cd ../.. && pnpm install --frozen-lockfile
       - cd ../.. && pnpm build
-      - cd ../.. && pnpm tauri android init --ci
+      - cd ../.. && pnpm tauri android init --ci && pnpm tauri icon src-tauri/icons/icon.png
       - cd ../.. && pnpm version:sync
     build:
       - export CARGO_INCREMENTAL=0

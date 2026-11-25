@@ -22,9 +22,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Tabbar, TabbarLink, ToolbarPane } from 'konsta/svelte';
 	import { CalendarDays, Compass, FolderOpen, Home, Settings } from 'lucide-svelte';
+
 	import { i18n, type TranslationKey } from '#lib/i18n/index.svelte.ts';
+	import { keyboardState } from '#lib/utils/keyboard.svelte.ts';
 
 	const NAV_ITEMS: readonly { path: string; labelKey: TranslationKey; icon: typeof Home }[] = [
 		{ path: '/', labelKey: 'nav.home', icon: Home },
@@ -34,50 +35,144 @@
 		{ path: '/settings', labelKey: 'nav.settings', icon: Settings }
 	];
 
+	const TAB_COUNT = NAV_ITEMS.length;
+
 	let currentPath = $derived(page.url.pathname);
 	let visible = $derived(currentPath !== '/auth');
 
-	function isNavActive(itemPath: string): boolean {
-		if (itemPath === '/') return currentPath === '/';
-		return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
-	}
+	let activeIndex = $derived.by(() => {
+		const idx = NAV_ITEMS.findIndex((item) => {
+			if (item.path === '/') return currentPath === '/';
+			return currentPath === item.path || currentPath.startsWith(`${item.path}/`);
+		});
+		return idx >= 0 ? idx : 0;
+	});
 
-	function handleSelect(itemPath: string): void {
-		if (currentPath === itemPath) {
+	let trackEl = $state<HTMLDivElement | null>(null);
+	let dragging = $state(false);
+	let pointerId = $state<number | null>(null);
+	let startX = 0;
+	let didScrub = false;
+	/** Continuous floating tab index [0 .. TAB_COUNT - 1] while finger-scrubbing */
+	let dragIndex = $state<number | null>(null);
+
+	let pillPosition = $derived(dragIndex !== null ? dragIndex : activeIndex);
+	let highlightedIndex = $derived(
+		dragIndex !== null ? Math.max(0, Math.min(TAB_COUNT - 1, Math.round(dragIndex))) : activeIndex
+	);
+
+	function navigateToIndex(index: number): void {
+		const clamped = Math.max(0, Math.min(TAB_COUNT - 1, index));
+		const target = NAV_ITEMS[clamped];
+		if (!target) return;
+		if (currentPath === target.path) {
 			if (typeof window !== 'undefined') {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			}
 			return;
 		}
-		void goto(itemPath);
+		void goto(target.path);
+	}
+
+	function pointerXToFloatIndex(clientX: number): number {
+		if (!trackEl) return activeIndex;
+		const rect = trackEl.getBoundingClientRect();
+		if (rect.width <= 0) return activeIndex;
+		const slotWidth = rect.width / TAB_COUNT;
+		const raw = (clientX - rect.left - slotWidth / 2) / slotWidth;
+		return Math.max(0, Math.min(TAB_COUNT - 1, raw));
+	}
+
+	function handlePointerDown(event: PointerEvent): void {
+		if (event.button !== 0 && event.pointerType === 'mouse') return;
+		pointerId = event.pointerId;
+		startX = event.clientX;
+		didScrub = false;
+	}
+
+	function handlePointerMove(event: PointerEvent): void {
+		if (pointerId !== event.pointerId || !trackEl) return;
+		const delta = Math.abs(event.clientX - startX);
+		if (!dragging && delta > 7) {
+			dragging = true;
+			didScrub = true;
+			try {
+				trackEl.setPointerCapture(event.pointerId);
+			} catch {
+				// Ignore capture errors on synthetic events
+			}
+		}
+		if (dragging) {
+			dragIndex = pointerXToFloatIndex(event.clientX);
+		}
+	}
+
+	function finishScrub(event: PointerEvent, commit: boolean): void {
+		if (pointerId !== event.pointerId) return;
+		const finalIndex = dragging ? Math.round(pointerXToFloatIndex(event.clientX)) : null;
+		if (trackEl) {
+			try {
+				if (trackEl.hasPointerCapture(event.pointerId)) {
+					trackEl.releasePointerCapture(event.pointerId);
+				}
+			} catch {
+				// Ignore
+			}
+		}
+		pointerId = null;
+		dragging = false;
+		dragIndex = null;
+		if (commit && finalIndex !== null) {
+			navigateToIndex(finalIndex);
+		}
+	}
+
+	function handleTabClick(index: number): void {
+		if (didScrub) {
+			didScrub = false;
+			return;
+		}
+		navigateToIndex(index);
 	}
 </script>
 
 {#if visible}
-	<!-- Persistent root-level Konsta UI v5 iOS 26 Tabbar so slider glides smoothly without resetting to Home -->
-	<Tabbar
-		labels
-		icons
-		class="fixed right-0 bottom-0 left-0 z-30 md:hidden"
+	<!-- Silky 60/120fps GPU-composited iOS 26 floating pill Tabbar with 1:1 finger scrubbing -->
+	<nav
 		aria-label={i18n.t('nav.primaryNav')}
+		class="xm-ios-tabbar-shell md:hidden"
+		class:xm-ios-tabbar-hidden={keyboardState.open}
 	>
-		<ToolbarPane>
-			{#each NAV_ITEMS as item (item.path)}
+		<div
+			bind:this={trackEl}
+			class="xm-ios-tabbar-track"
+			onpointerdown={handlePointerDown}
+			onpointermove={handlePointerMove}
+			onpointerup={(e) => finishScrub(e, true)}
+			onpointercancel={(e) => finishScrub(e, false)}
+		>
+			<!-- Pure transform: translate3d sliding glass indicator pill (zero layout reflow) -->
+			<div
+				class="xm-ios-tabbar-pill"
+				class:is-dragging={dragging}
+				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(calc(${pillPosition} * 100%), 0, 0)${dragging ? ' scale(1.045)' : ''};`}
+				aria-hidden="true"
+			></div>
+
+			{#each NAV_ITEMS as item, idx (item.path)}
 				{@const IconComp = item.icon}
-				{@const active = isNavActive(item.path)}
-				<TabbarLink
-					{active}
-					aria-current={active ? 'page' : undefined}
-					onclick={() => handleSelect(item.path)}
+				{@const active = highlightedIndex === idx}
+				<button
+					type="button"
+					class="xm-ios-tabbar-item"
+					class:is-active={active}
+					aria-current={activeIndex === idx ? 'page' : undefined}
+					onclick={() => handleTabClick(idx)}
 				>
-					{#snippet icon()}
-						<IconComp class="h-5 w-5" aria-hidden="true" />
-					{/snippet}
-					{#snippet label()}
-						{i18n.t(item.labelKey)}
-					{/snippet}
-				</TabbarLink>
+					<IconComp class="xm-ios-tabbar-icon h-[20px] w-[20px]" strokeWidth={active ? 2.25 : 1.85} aria-hidden="true" />
+					<span class="xm-ios-tabbar-label">{i18n.t(item.labelKey)}</span>
+				</button>
 			{/each}
-		</ToolbarPane>
-	</Tabbar>
+		</div>
+	</nav>
 {/if}

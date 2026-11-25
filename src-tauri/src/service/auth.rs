@@ -83,6 +83,10 @@ pub fn require_host(state: &AppState) -> AppResult<User> {
     Ok(user)
 }
 
+pub fn normalize_username(username: &str) -> String {
+    username.trim().to_ascii_lowercase()
+}
+
 pub fn validate_username(username: &str) -> AppResult<()> {
     let trimmed = username.trim();
     if trimmed.len() < 2 || trimmed.len() > 32 {

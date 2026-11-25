@@ -24,6 +24,7 @@ pub mod state;
 pub mod store;
 
 use std::path::PathBuf;
+#[cfg(desktop)]
 use std::time::Duration;
 
 use tauri::http::{header, Response, StatusCode};
@@ -181,14 +182,17 @@ pub fn run() {
                 state.run_background_startup_maintenance();
             });
 
-            // Failsafe reveal so the window can never stay hidden if frontend reveal is delayed
-            let failsafe_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(1200));
-                if let Some(window) = failsafe_handle.get_webview_window("main") {
-                    let _ = window.show();
-                }
-            });
+            // Failsafe reveal on Desktop so the frameless window can never stay hidden if frontend reveal is delayed
+            #[cfg(desktop)]
+            {
+                let failsafe_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1200));
+                    if let Some(window) = failsafe_handle.get_webview_window("main") {
+                        let _ = window.show();
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

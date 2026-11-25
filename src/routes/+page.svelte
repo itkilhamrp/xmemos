@@ -72,7 +72,7 @@
 	$effect(() => {
 		if (!authState.initialized) return;
 		if (!authState.hasHost) {
-			void goto('/auth');
+			void goto('/auth', { replaceState: true });
 			return;
 		}
 		const uid = authState.currentUser?.id ?? null;

@@ -5,6 +5,36 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.24] - 2026-11-25
+
+### Fixed
+- **Android Home-Screen Sticky Memo Widget (`"Masalah memuat widget"` / Inflation Crash)**:
+  - Replaced the unsupported `<View>` element in `plugins/tauri-plugin-xmemos-storage/android/src/main/res/layout/widget_memo_sticky.xml` with `@RemoteView`-compliant `<FrameLayout>` so Android's `AppWidgetHostView` inflates the sticky widget cleanly without throwing `InflateException`.
+  - Updated `XmemosMemoWidgetProvider` in `plugins/tauri-plugin-xmemos-storage/android/src/main/AndroidManifest.xml` to `android:exported="true"` as required on Android 12+ (`targetSdk >= 31`) for `APPWIDGET_UPDATE` broadcasts.
+  - Added `plugins/tauri-plugin-xmemos-storage/android/src/main/res/raw/keep.xml` to protect widget layout, drawable, XML provider metadata, and colors from AGP resource shrinking in release APKs, and switched pending widget preference writes in `XmemosMemoWidgetProvider.kt` to synchronous `commit()` to eliminate pin-time race conditions.
+- **Android Soft-Keyboard Layout Stability (Account Switcher, PIN Lock & Memo Editor)**:
+  - Added W3C Visual Viewport tracker (`src/lib/utils/keyboard.svelte.ts`, wired in `src/routes/+layout.svelte`) to sync `--xm-vvh`, `--xm-vvt`, and `--xm-kb-inset` cleanly on Android WebView.
+  - Refactored `src/lib/components/auth/AccountSwitcherSheet.svelte`, `src/lib/components/auth/PinLockOverlay.svelte`, and `src/lib/components/memo/MemoEditor.svelte` so password/PIN inputs and memo editing stay centered and stably positioned above the Android on-screen keyboard without jumping or clipping.
+
+### Changed
+- **Silky iOS-Style Mobile Bottom Navigation Bar (`src/lib/components/layout/BottomTabbar.svelte`)**:
+  - Upgraded the mobile bottom bar to a 60/120fps GPU-composited floating pill dock (`transform: translate3d`) with real-time 1:1 horizontal finger scrubbing, spring easing (`cubic-bezier(0.22, 1, 0.36, 1)`), and automatic hide when the soft keyboard is open.
+- **Lightweight Android Memo Options Popup (`src/lib/components/memo/MemoActionsSheet.svelte`)**:
+  - Replaced the heavy multi-layer blurred mobile ActionSheet on `< 1024px` viewports with a GPU-composited, zero-scrim-blur iOS Action Sheet for instant, smooth opening/closing on Android WebView while keeping the desktop macOS floating menu intact.
+
+## [2.7.23] - 2026-11-25
+
+### Fixed & Improved
+- **Case-Insensitive Lowercase Usernames (`src-tauri/src/service/auth.rs`, `src-tauri/src/store/user.rs`, `src-tauri/src/commands/{auth,user}.rs`, `src/routes/auth/+page.svelte`, `src/routes/settings/users/+page.svelte`)**:
+  - Normalized all usernames to lowercase on sign-up, host setup, admin creation, and profile updates (`normalize_username`) and switched SQLite lookups to case-insensitive `LOWER(username) = LOWER(?1)` so sign-in works seamlessly regardless of keyboard capitalization (including existing databases), paired with `autocapitalize="none"` and live lowercase input normalization on mobile keyboards.
+- **Android APK Launcher Icon Fix (`.github/workflows/android-release.yml`, `docs/FDROID.md`)**:
+  - Added `pnpm tauri icon src-tauri/icons/icon.png` immediately after `pnpm tauri android init --ci` so every Android APK ships the canonical Xmemos Liquid Glass launcher & adaptive `mipmap-*` icons instead of Tauri's default template icon.
+- **Android Release Stability, R8 Keep Rules & Error 500 Resilience (`plugins/tauri-plugin-xmemos-storage/android/{build.gradle.kts,consumer-rules.pro}`, `.github/workflows/android-release.yml`, `src-tauri/tauri.conf.json`, `src/hooks.client.ts`)**:
+  - Added `consumer-rules.pro` + app-level ProGuard `-keep` rules for `app.tauri.**` and `org.xmemos.storage.**` plus `android.enableR8.fullMode=false` so R8 minification never strips `@TauriPlugin`/`@Command` JNI bindings or widget classes on release APKs.
+  - Added `http://asset.localhost` to CSP `img-src`/`media-src` for Android `convertFileSrc`, added `src/hooks.client.ts` for clear client error reporting, and fixed `/auth` redirect history handling (`replaceState: true`).
+- **Faster Instant Android Startup (`src-tauri/src/state.rs`, `src-tauri/src/lib.rs`, `src/routes/+layout.svelte`)**:
+  - Deferred non-critical directory creation (`backups/`, `temp/`, `thumbs/`) to the background maintenance thread, gated desktop-only window reveal threads and `KeyboardShortcutsModal` behind desktop checks, and made shortcut listener wiring non-blocking so Android launches directly to the first frame with minimal boot latency.
+
 ## [2.7.22] - 2026-11-25
 
 ### Added
