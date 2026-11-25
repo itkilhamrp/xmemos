@@ -143,6 +143,12 @@ jobs:
           -keep class org.xmemos.** { *; }
           -keepclassmembers class org.xmemos.storage.** { *; }
           -keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+          # Jackson (used internally by Tauri Android) checks optional JDK desktop java.beans.* classes at runtime
+          -dontwarn java.beans.ConstructorProperties
+          -dontwarn java.beans.Transient
+          -dontwarn java.beans.**
+          -dontwarn javax.xml.**
+          -dontwarn org.w3c.dom.bootstrap.DOMImplementationRegistry
           PROGUARD_EOF
           cat << 'GRADLE_EOF' >> src-tauri/gen/android/app/build.gradle.kts
 
@@ -199,8 +205,8 @@ jobs:
           build_abi() {
             local abi_name="$1"
             local tauri_target="$2"
-            # Remove prior ABI APK outputs so discovery strictly selects this ABI's freshly built APK
-            rm -rf src-tauri/gen/android/app/build/outputs/apk
+            # Remove prior ABI APK outputs and jniLibs symlinks so each split ABI APK bundles strictly its own native library
+            rm -rf src-tauri/gen/android/app/build/outputs/apk src-tauri/gen/android/app/src/main/jniLibs
             if [ "${tauri_target}" = "universal" ]; then
               pnpm tauri android build --apk
             else

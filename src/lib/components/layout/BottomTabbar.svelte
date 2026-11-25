@@ -146,6 +146,7 @@
 		<div
 			bind:this={trackEl}
 			role="toolbar"
+			tabindex="-1"
 			aria-label={i18n.t('nav.primaryNav')}
 			class="xm-ios-tabbar-track"
 			onpointerdown={handlePointerDown}

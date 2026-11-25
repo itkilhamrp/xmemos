@@ -319,30 +319,6 @@
           "markdownDescription": "Denies the check_biometric_available command without any pre-configured scope."
         },
         {
-          "description": "Enables the consume_pending_memo_shortcut command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-consume-pending-memo-shortcut",
-          "markdownDescription": "Enables the consume_pending_memo_shortcut command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the consume_pending_memo_shortcut command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-consume-pending-memo-shortcut",
-          "markdownDescription": "Denies the consume_pending_memo_shortcut command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the create_memo_shortcut command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-create-memo-shortcut",
-          "markdownDescription": "Enables the create_memo_shortcut command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the create_memo_shortcut command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-create-memo-shortcut",
-          "markdownDescription": "Denies the create_memo_shortcut command without any pre-configured scope."
-        },
-        {
           "description": "Enables the get_media_root command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-media-root",
@@ -403,10 +379,10 @@
           "markdownDescription": "Denies the set_nomedia command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the Xmemos Android/Desktop storage and biometric bridge\n#### This default permission set includes:\n\n- `allow-get-media-root`\n- `allow-set-nomedia`\n- `allow-get-nomedia-status`\n- `allow-pick-document`\n- `allow-save-document`\n- `allow-authenticate-biometric`\n- `allow-check-biometric-available`\n- `allow-create-memo-shortcut`\n- `allow-consume-pending-memo-shortcut`",
+          "description": "Default permissions for the Xmemos Android/Desktop storage and biometric bridge\n#### This default permission set includes:\n\n- `allow-get-media-root`\n- `allow-set-nomedia`\n- `allow-get-nomedia-status`\n- `allow-pick-document`\n- `allow-save-document`\n- `allow-authenticate-biometric`\n- `allow-check-biometric-available`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the Xmemos Android/Desktop storage and biometric bridge\n#### This default permission set includes:\n\n- `allow-get-media-root`\n- `allow-set-nomedia`\n- `allow-get-nomedia-status`\n- `allow-pick-document`\n- `allow-save-document`\n- `allow-authenticate-biometric`\n- `allow-check-biometric-available`\n- `allow-create-memo-shortcut`\n- `allow-consume-pending-memo-shortcut`"
+          "markdownDescription": "Default permissions for the Xmemos Android/Desktop storage and biometric bridge\n#### This default permission set includes:\n\n- `allow-get-media-root`\n- `allow-set-nomedia`\n- `allow-get-nomedia-status`\n- `allow-pick-document`\n- `allow-save-document`\n- `allow-authenticate-biometric`\n- `allow-check-biometric-available`"
         }
       ]
     }

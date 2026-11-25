@@ -5,6 +5,15 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.27] - 2026-11-26
+
+### Fixed
+- **Android Release R8 Minification (`:app:minifyUniversalReleaseWithR8`) & Clean Per-ABI Split Packaging (`.github/workflows/android-release.yml`, `plugins/tauri-plugin-xmemos-storage/android/consumer-rules.pro`)**:
+  - Added `-dontwarn java.beans.**` (covering `java.beans.ConstructorProperties` and `java.beans.Transient` referenced optionally by Jackson's `Java7SupportImpl` inside Tauri Android) along with `-dontwarn javax.xml.**` and `-dontwarn org.w3c.dom.bootstrap.DOMImplementationRegistry` so AGP 9.x / R8 release minification completes cleanly.
+  - Cleared `src-tauri/gen/android/app/src/main/jniLibs` alongside `outputs/apk` before each ABI pass in `build_abi()` so `arm64-v8a`, `armeabi-v7a`, and `x86_64` split APKs strictly bundle only their own native library.
+- **Zero-Warning Svelte 5 Build (`src/lib/components/layout/BottomTabbar.svelte`)**:
+  - Added `tabindex="-1"` to the `role="toolbar"` swipe track in `BottomTabbar.svelte` to resolve the `a11y_interactive_supports_focus` warning during `vite build`.
+
 ## [2.7.26] - 2026-11-26
 
 ### Fixed

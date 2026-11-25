@@ -10,3 +10,8 @@
 -keepclassmembers class * {
     @app.tauri.annotation.Command <methods>;
 }
+-dontwarn java.beans.ConstructorProperties
+-dontwarn java.beans.Transient
+-dontwarn java.beans.**
+-dontwarn javax.xml.**
+-dontwarn org.w3c.dom.bootstrap.DOMImplementationRegistry
