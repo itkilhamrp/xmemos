@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { CalendarDays, Compass, FolderOpen, Home, Settings } from 'lucide-svelte';
@@ -49,18 +50,21 @@
 	});
 
 	let trackEl = $state<HTMLDivElement | null>(null);
+	let pillEl = $state<HTMLDivElement | null>(null);
 	let dragging = $state(false);
-	let pointerId = $state<number | null>(null);
+	let pointerId: number | null = null;
 	let startX = 0;
 	let didScrub = false;
-	/** Continuous floating tab index [0 .. TAB_COUNT - 1] while finger-scrubbing */
-	let dragIndex = $state<number | null>(null);
 	/** Locks the pill on the target tab while SvelteKit navigation settles (zero snap-back/bounce) */
 	let pendingNavIndex = $state<number | null>(null);
-	let lastRealtimeIndex = -1;
+	/** Only updates when crossing into a new integer tab slot (zero per-pixel Svelte re-renders!) */
+	let hoverIndex = $state<number | null>(null);
+
 	let trackRectCache: DOMRect | null = null;
 	let pendingClientX: number | null = null;
 	let scrubRafId = 0;
+	let dwellTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastNavigatedIndex = -1;
 
 	$effect(() => {
 		if (pendingNavIndex !== null && routeIndex === pendingNavIndex) {
@@ -69,17 +73,28 @@
 	});
 
 	let settledIndex = $derived(pendingNavIndex !== null ? pendingNavIndex : routeIndex);
-	let pillPosition = $derived(dragIndex !== null ? dragIndex : settledIndex);
-	let highlightedIndex = $derived(
-		dragIndex !== null
-			? Math.max(0, Math.min(TAB_COUNT - 1, Math.round(dragIndex)))
-			: settledIndex
-	);
+	let highlightedIndex = $derived(hoverIndex !== null ? hoverIndex : settledIndex);
+
+	// Sync pill GPU transform whenever settledIndex changes while not actively finger-dragging
+	$effect(() => {
+		const idx = settledIndex;
+		if (!dragging && pillEl) {
+			pillEl.style.transform = `translate3d(${idx * 100}%, 0, 0)`;
+		}
+	});
+
+	function clearDwellTimer(): void {
+		if (dwellTimer) {
+			clearTimeout(dwellTimer);
+			dwellTimer = null;
+		}
+	}
 
 	function navigateToIndex(index: number, fromScrub = false): void {
 		const clamped = Math.max(0, Math.min(TAB_COUNT - 1, index));
 		const target = NAV_ITEMS[clamped];
 		if (!target) return;
+		lastNavigatedIndex = clamped;
 		if (currentPath === target.path) {
 			pendingNavIndex = null;
 			if (!fromScrub && typeof window !== 'undefined') {
@@ -104,16 +119,25 @@
 		scrubRafId = 0;
 		if (!dragging || pendingClientX === null) return;
 		const nextFloat = pointerXToFloatIndex(pendingClientX);
-		dragIndex = nextFloat;
 
-		// Hysteresis (0.36) prevents rapid oscillation when finger hovers right on a tab boundary
+		// Direct GPU compositor transform update — zero Svelte re-renders during finger glide!
+		if (pillEl) {
+			pillEl.style.transform = `translate3d(${nextFloat * 100}%, 0, 0)`;
+		}
+
 		const candidate = Math.max(0, Math.min(TAB_COUNT - 1, Math.round(nextFloat)));
-		if (
-			candidate !== lastRealtimeIndex &&
-			Math.abs(nextFloat - candidate) <= 0.36
-		) {
-			lastRealtimeIndex = candidate;
-			navigateToIndex(candidate, true);
+		if (candidate !== hoverIndex) {
+			hoverIndex = candidate;
+			// Brief 95ms dwell triggers realtime navigation without blocking fast multi-tab glides
+			clearDwellTimer();
+			if (candidate !== lastNavigatedIndex) {
+				dwellTimer = setTimeout(() => {
+					dwellTimer = null;
+					if (dragging && hoverIndex === candidate && candidate !== lastNavigatedIndex) {
+						navigateToIndex(candidate, true);
+					}
+				}, 95);
+			}
 		}
 	}
 
@@ -122,7 +146,7 @@
 		pointerId = event.pointerId;
 		startX = event.clientX;
 		didScrub = false;
-		lastRealtimeIndex = settledIndex;
+		lastNavigatedIndex = settledIndex;
 		trackRectCache = trackEl?.getBoundingClientRect() ?? null;
 	}
 
@@ -132,6 +156,7 @@
 		if (!dragging && delta > 6) {
 			dragging = true;
 			didScrub = true;
+			hoverIndex = settledIndex;
 			try {
 				trackEl.setPointerCapture(event.pointerId);
 			} catch {
@@ -148,6 +173,7 @@
 
 	function finishScrub(event: PointerEvent, commit: boolean): void {
 		if (pointerId !== event.pointerId) return;
+		clearDwellTimer();
 		if (scrubRafId !== 0) {
 			cancelAnimationFrame(scrubRafId);
 			scrubRafId = 0;
@@ -168,14 +194,18 @@
 		pendingClientX = null;
 		trackRectCache = null;
 		dragging = false;
+		hoverIndex = null;
+
 		if (commit && finalIndex !== null) {
 			pendingNavIndex = finalIndex;
-			dragIndex = null;
-			if (finalIndex !== lastRealtimeIndex) {
+			if (pillEl) {
+				pillEl.style.transform = `translate3d(${finalIndex * 100}%, 0, 0)`;
+			}
+			if (finalIndex !== lastNavigatedIndex) {
 				navigateToIndex(finalIndex, true);
 			}
-		} else {
-			dragIndex = null;
+		} else if (pillEl) {
+			pillEl.style.transform = `translate3d(${settledIndex * 100}%, 0, 0)`;
 		}
 	}
 
@@ -186,10 +216,17 @@
 		}
 		navigateToIndex(index, false);
 	}
+
+	onDestroy(() => {
+		clearDwellTimer();
+		if (scrubRafId !== 0) {
+			cancelAnimationFrame(scrubRafId);
+		}
+	});
 </script>
 
 {#if visible}
-	<!-- Authentic Konsta UI v5 iOS 26 Liquid Glass Tabbar with 60/120fps realtime scrubbing -->
+	<!-- Authentic Konsta UI v5 iOS 26 Liquid Glass Tabbar with 60/120fps direct-GPU scrubbing -->
 	<nav
 		aria-label={i18n.t('nav.primaryNav')}
 		class="xm-ios-tabbar-shell md:hidden"
@@ -206,11 +243,12 @@
 			onpointerup={(e) => finishScrub(e, true)}
 			onpointercancel={(e) => finishScrub(e, false)}
 		>
-			<!-- Pure transform: translate3d neutral Liquid Glass sliding lens (zero blue fill, zero bounce) -->
+			<!-- Direct-GPU transform: translate3d neutral Liquid Glass lens (zero blue fill, zero jank) -->
 			<div
+				bind:this={pillEl}
 				class="xm-ios-tabbar-pill"
 				class:is-dragging={dragging}
-				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(calc(${pillPosition} * 100%), 0, 0);`}
+				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(${settledIndex * 100}%, 0, 0);`}
 				aria-hidden="true"
 			></div>
 

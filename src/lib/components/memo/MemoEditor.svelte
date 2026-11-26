@@ -22,7 +22,7 @@
 <script lang="ts">
 	import { i18n } from '#lib/i18n/index.svelte.ts';
 	import { onDestroy, untrack } from 'svelte';
-	import { Button, Segmented, SegmentedButton, Sheet } from 'konsta/svelte';
+	import { Button, Segmented, SegmentedButton } from 'konsta/svelte';
 	import {
 		Bold,
 		Calendar,
@@ -629,14 +629,20 @@
 	}
 </script>
 
-<Sheet
-	class="xm-kb-editor-sheet mx-auto w-full max-w-2xl !z-[60] glass-elevated"
-	{opened}
-	onBackdropClick={onClose}
->
-	<div class="flex h-full flex-col overflow-hidden md:h-auto md:max-h-[calc(var(--xm-vvh,100dvh)-24px)]">
-		<!-- Fixed Header: Title, Close, Write/Preview Toggle, and Pinned Formatting Toolbar -->
-		<div class="shrink-0 space-y-2.5 border-b border-[var(--xm-divider)] px-4 pt-3.5 pb-3">
+{#if opened}
+	<div
+		class="xm-kb-editor-backdrop fixed inset-0 z-[59] bg-black/45"
+		aria-hidden="true"
+		onclick={onClose}
+	></div>
+	<div
+		role="dialog"
+		aria-modal="true"
+		aria-label={i18n.t(editingMemo ? 'editor.editMemo' : parentMemoId ? 'editor.addComment' : 'editor.newMemo')}
+		class="xm-kb-editor-sheet fixed inset-x-0 z-[60] mx-auto flex w-full max-w-2xl flex-col overflow-hidden bg-[var(--xm-bg-base)] md:inset-x-4 md:bottom-4 md:top-auto md:max-h-[calc(100dvh-2rem)] md:rounded-3xl md:border md:border-[var(--xm-divider)] md:shadow-2xl"
+	>
+		<!-- Fixed Header: Safe-Area Top + Title, Close, Write/Preview Toggle, and Pinned Formatting Toolbar -->
+		<div class="shrink-0 space-y-2.5 border-b border-[var(--xm-divider)] px-4 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3 md:pt-3.5">
 			<div class="flex items-center justify-between gap-2">
 				<h2 class="text-base font-bold xm-text-primary">
 					{i18n.t(editingMemo ? 'editor.editMemo' : parentMemoId ? 'editor.addComment' : 'editor.newMemo')}
@@ -1096,4 +1102,4 @@
 			</Button>
 		</div>
 	</div>
-</Sheet>
+{/if}

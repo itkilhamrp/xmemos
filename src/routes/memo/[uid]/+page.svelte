@@ -169,14 +169,16 @@
 	{/if}
 </AppShell>
 
-{#if memoView}
+{#if memoView && commentSheetOpened}
 	<MemoEditor
 		opened={commentSheetOpened}
 		parentMemoId={memoView.memo.id}
 		onClose={() => (commentSheetOpened = false)}
 		onSaved={() => memoView && void loadDetail(memoView.memo.uid)}
 	/>
+{/if}
 
+{#if memoView && editSheetOpened}
 	<MemoEditor
 		opened={editSheetOpened}
 		{editingMemo}

@@ -5,6 +5,15 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.2] - 2026-11-27
+
+### Fixed
+- **Android Phantom Memo Editor Overlay on Route Switch & Unresponsive `+` FAB (`src/lib/components/memo/MemoEditor.svelte`, `src/lib/components/layout/AppShell.svelte`, `src/routes/memo/[uid]/+page.svelte`, `src/app.css`, `AGENTS.md`)**:
+  - Replaced Konsta `<Sheet>` inside `MemoEditor.svelte` (whose `top: 100%` + `translateY(-100%)` open/close mechanics were inverted by the v2.8.0 mobile `top: 0 !important` rule, causing closed editors to appear on route switches and opened FAB editors to translate off-screen) with a clean `{#if opened}` dedicated `role="dialog"` overlay.
+  - Added `env(safe-area-inset-top)` header clearance so the editor header never overlaps the Android status bar, gated all remaining `<MemoEditor>` mounts in `AppShell.svelte` and `src/routes/memo/[uid]/+page.svelte`, and preserved the zero-jump mobile visual-viewport (`--xm-vvt`/`--xm-vvh`) keyboard lock.
+- **Silky 60/120fps Mobile Bottom Tabbar Slider (`src/lib/components/layout/BottomTabbar.svelte`, `src/app.css`)**:
+  - Eliminated main-thread scrubbing stutter by updating `pillEl.style.transform` directly on the GPU compositor inside `requestAnimationFrame` (zero per-pixel Svelte state re-renders) and adding a 95ms dwell debounce for realtime route switching so gliding rapidly across multiple tabs stays completely fluid without mounting intermediate pages mid-drag.
+
 ## [2.9.1] - 2026-11-26
 
 ### Fixed

@@ -672,7 +672,7 @@
 
 <AccountSwitcherSheet opened={switcherOpened} onClose={() => (switcherOpened = false)} />
 
-{#if !onCompose}
+{#if !onCompose && quickComposeOpened}
 	<MemoEditor
 		opened={quickComposeOpened}
 		onClose={() => (quickComposeOpened = false)}
