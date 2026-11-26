@@ -23,6 +23,7 @@
 //! - macOS: Native 128x128 RGBA `ic07` PNG-compressed `.icns` sticky note card
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct StickyPalette {
     pub body: [u8; 3],
     pub header: [u8; 3],
@@ -114,6 +115,7 @@ pub fn resolve_sticky_palette(color: Option<&str>) -> StickyPalette {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn xml_escape(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     for ch in input.chars() {
@@ -130,6 +132,7 @@ fn xml_escape(input: &str) -> String {
     out
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn wrap_preview_lines(text: &str, max_chars: usize, max_lines: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
@@ -223,6 +226,7 @@ pub fn render_sticky_note_svg(title: &str, preview: &str, color: Option<&str>) -
     )
 }
 
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn crc32(data: &[u8]) -> u32 {
     let mut crc: u32 = 0xffff_ffff;
     for &byte in data {
@@ -238,6 +242,7 @@ fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn adler32(data: &[u8]) -> u32 {
     const MOD_ADLER: u32 = 65521;
     let mut a: u32 = 1;
@@ -249,6 +254,7 @@ fn adler32(data: &[u8]) -> u32 {
     (b << 16) | a
 }
 
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn write_png_chunk(out: &mut Vec<u8>, chunk_type: &[u8; 4], payload: &[u8]) {
     out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
     out.extend_from_slice(chunk_type);
@@ -261,6 +267,7 @@ fn write_png_chunk(out: &mut Vec<u8>, chunk_type: &[u8; 4], payload: &[u8]) {
 
 /// Encodes an RGBA pixel buffer into a 100% standards-compliant PNG using stored zlib blocks
 /// (zero external dependencies, deterministic output).
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn encode_rgba_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     let row_bytes = (width as usize) * 4;
     let mut raw = Vec::with_capacity((row_bytes + 1) * (height as usize));
@@ -306,6 +313,7 @@ fn encode_rgba_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
 }
 
 /// Renders a 128x128 RGBA MS Sticky Notes card bitmap (header strip, ruled note bars, folded corner, drop shadow).
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 pub fn render_sticky_note_png_128(color: Option<&str>) -> Vec<u8> {
     const SIZE: usize = 128;
     let p = resolve_sticky_palette(color);
@@ -375,10 +383,10 @@ pub fn render_sticky_note_png_128(color: Option<&str>) -> Vec<u8> {
                     }
                 } else {
                     // Stylised memo text lines inside the sticky note body
-                    let is_line = (y >= 46 && y <= 50 && x >= 22 && x <= 96)
-                        || (y >= 62 && y <= 66 && x >= 22 && x <= 104)
-                        || (y >= 78 && y <= 82 && x >= 22 && x <= 90)
-                        || (y >= 94 && y <= 98 && x >= 22 && x <= 74);
+                    let is_line = ((46..=50).contains(&y) && (22..=96).contains(&x))
+                        || ((62..=66).contains(&y) && (22..=104).contains(&x))
+                        || ((78..=82).contains(&y) && (22..=90).contains(&x))
+                        || ((94..=98).contains(&y) && (22..=74).contains(&x));
                     if is_line {
                         // Soften text line ink over body
                         [

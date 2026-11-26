@@ -26,6 +26,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{Error, Result};
+#[cfg(not(target_os = "macos"))]
 use crate::desktop::resolve_portable_data_dir;
 use crate::models::{CreateMemoShortcutRequest, CreateMemoShortcutResponse};
 use crate::sticky_icon;
@@ -207,6 +208,7 @@ fn resolve_desktop_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn resolve_sticky_icons_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     let base = resolve_portable_data_dir().or_else(|| app.path().app_data_dir().ok())?;
     let dir = base.join("sticky-icons");

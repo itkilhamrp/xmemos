@@ -104,7 +104,7 @@
 			// window directly while keeping the main window hidden (unless PIN-locked).
 			if (isDesktopTauri() && !isStickyRoute) {
 				const pendingUid = await shortcutApi.consumePendingMemoShortcut();
-				if (pendingUid && authState.hasHost && !authState.locked) {
+				if (pendingUid && authState.hasHost && !authState.isLocked) {
 					try {
 						await shortcutApi.openStickyMemoWindow(pendingUid);
 					} catch {
