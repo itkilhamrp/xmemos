@@ -73,7 +73,7 @@
 		if (!authState.initialized) return;
 		if (!authState.hasHost) {
 			untrack(() => {
-				void goto('/auth', { replaceState: true });
+				void goto('/auth', { replace: true });
 			});
 			return;
 		}

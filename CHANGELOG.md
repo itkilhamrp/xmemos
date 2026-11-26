@@ -5,6 +5,13 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-11-26
+
+### Fixed
+- **SvelteKit 3 `GotoOptions` Strict Typecheck Compliance (`src/lib/components/layout/BottomTabbar.svelte`, `src/routes/+layout.svelte`, `src/routes/+page.svelte`, `AGENTS.md`)**:
+  - Replaced the removed SvelteKit 2 `goto(target.path, { keepFocus: true })` option in `BottomTabbar.svelte` with SvelteKit 3's canonical `goto(target.path, { reset: false })` (which combines `keepFocus: true` and `noScroll: true` per official SvelteKit v3 migration docs), resolving the `svelte-check` CI failure.
+  - Migrated deprecated `{ replaceState: true }` calls in `src/routes/+layout.svelte` and `src/routes/+page.svelte` to SvelteKit 3's `{ replace: true }`, and documented SvelteKit 3 `GotoOptions` guardrails in `AGENTS.md` Invariant #3 to prevent future regressions.
+
 ## [2.8.1] - 2026-11-26
 
 ### Changed

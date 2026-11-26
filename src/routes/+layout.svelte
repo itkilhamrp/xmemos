@@ -111,7 +111,7 @@
 			await authState.refresh();
 			if (!authState.hasHost && page.url.pathname !== '/auth') {
 				revealMainWindow();
-				await goto('/auth', { replaceState: true });
+				await goto('/auth', { replace: true });
 				return;
 			}
 			// On Desktop, if Rust launched strictly in MS Sticky Note shortcut mode, NEVER reveal main window

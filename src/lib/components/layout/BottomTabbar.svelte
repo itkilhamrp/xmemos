@@ -88,7 +88,7 @@
 			return;
 		}
 		pendingNavIndex = clamped;
-		void goto(target.path, { keepFocus: true });
+		void goto(target.path, { reset: false });
 	}
 
 	function pointerXToFloatIndex(clientX: number): number {
