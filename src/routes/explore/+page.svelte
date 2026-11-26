@@ -33,6 +33,7 @@
 	import { feedDisplayState } from '#lib/state/feed-display.svelte.ts';
 	import type { QuickFilterType } from '#lib/state/filters.svelte.ts';
 	import { memosState } from '#lib/state/memos.svelte.ts';
+	import { tabCacheState } from '#lib/state/tab-cache.svelte.ts';
 	import { shortcutsState } from '#lib/state/shortcuts.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
 	import { getLocalDayBounds } from '#lib/utils/date.ts';
@@ -54,8 +55,9 @@
 		{ id: 'CODE', labelKey: 'home.filter.code' }
 	];
 
-	let items = $state<MemoView[]>([]);
-	let loading = $state(true);
+	const initialExploreCache = tabCacheState.getExplore(authState.currentUser?.id ?? null);
+	let items = $state<MemoView[]>(initialExploreCache ?? []);
+	let loading = $state(initialExploreCache === null);
 	let loadingMore = $state(false);
 	let hasMore = $state(true);
 	let offset = $state(0);
@@ -177,7 +179,7 @@
 		if (!reset && (loading || loadingMore || !hasMore)) return;
 		const seq = ++requestSeq;
 		if (reset) {
-			loading = true;
+			loading = items.length === 0;
 		} else {
 			loadingMore = true;
 		}
@@ -206,6 +208,9 @@
 			if (seq !== requestSeq) return;
 			if (reset) {
 				items = batch;
+				if (!hasActiveFilters && !feedDisplayState.hasNonDefaultSort) {
+					tabCacheState.setExplore(authState.currentUser?.id ?? null, batch);
+				}
 			} else {
 				const seen = new Set(items.map((m) => m.memo.id));
 				items = [...items, ...batch.filter((m) => !seen.has(m.memo.id))];

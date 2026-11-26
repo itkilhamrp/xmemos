@@ -166,12 +166,21 @@ CREATE INDEX IF NOT EXISTS idx_resource_creator_id ON resource(creator_id);
 CREATE INDEX IF NOT EXISTS idx_inbox_receiver_id ON inbox(receiver_id);
 "#;
 
+const MEMOS_SCHEMA_USER_VERSION: i64 = 240;
+
 pub fn init_memos_schema(conn: &Connection) -> AppResult<()> {
+    let current_ver: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap_or(0);
+    if current_ver == MEMOS_SCHEMA_USER_VERSION {
+        return Ok(());
+    }
     conn.execute_batch(MEMOS_SCHEMA_SQL)?;
     conn.execute(
         "INSERT OR IGNORE INTO migration_history (version) VALUES (?1)",
         [MEMOS_COMPATIBLE_SCHEMA_VERSION],
     )?;
+    let _ = conn.execute_batch(&format!("PRAGMA user_version = {MEMOS_SCHEMA_USER_VERSION};"));
     Ok(())
 }
 

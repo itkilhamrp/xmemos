@@ -32,6 +32,7 @@
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
 	import { filterState } from '#lib/state/filters.svelte.ts';
 	import { memosState } from '#lib/state/memos.svelte.ts';
+	import { tabCacheState } from '#lib/state/tab-cache.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
 	import { toLocalDateKey } from '#lib/utils/date.ts';
 	import AppShell from '#lib/components/layout/AppShell.svelte';
@@ -40,8 +41,9 @@
 	import MemoEditor from '#lib/components/memo/MemoEditor.svelte';
 	import KonstaSkeleton from '#lib/components/ui/KonstaSkeleton.svelte';
 
-	let allMemos = $state<MemoView[]>([]);
-	let loading = $state(true);
+	const initialReviewCache = tabCacheState.getReview(authState.currentUser?.id ?? null);
+	let allMemos = $state<MemoView[]>(initialReviewCache ?? []);
+	let loading = $state(initialReviewCache === null);
 	let activeTab = $state<'calendar' | 'random'>('calendar');
 	let selectedDate = $state<string | null>(null);
 	let randomPick = $state<MemoView | null>(null);
@@ -179,17 +181,25 @@
 	$effect(() => {
 		const uid = authState.currentUser?.id ?? null;
 		const seq = ++loadSeq;
-		loading = true;
+		const cached = tabCacheState.getReview(uid);
+		if (cached && allMemos.length === 0) {
+			allMemos = cached;
+			if (!randomPick) pickRandom();
+			loading = false;
+		} else if (allMemos.length === 0) {
+			loading = true;
+		}
 		void memoApi
 			.list({
 				creatorId: uid,
 				rowStatus: 'NORMAL',
-				limit: 2000
+				limit: 500
 			})
 			.then((memos) => {
 				if (seq !== loadSeq) return;
 				allMemos = memos;
-				pickRandom();
+				tabCacheState.setReview(uid, memos);
+				if (!randomPick) pickRandom();
 			})
 			.finally(() => {
 				if (seq === loadSeq) loading = false;

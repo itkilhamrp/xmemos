@@ -30,6 +30,8 @@
 	import { i18n, type TranslationKey } from '#lib/i18n/index.svelte.ts';
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
 	import { lightboxState } from '#lib/state/lightbox.svelte.ts';
+	import { authState } from '#lib/state/auth.svelte.ts';
+	import { tabCacheState } from '#lib/state/tab-cache.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
 	import { formatBytes } from '#lib/utils/date.ts';
 	import { formatSavedLabel } from '#lib/utils/download.ts';
@@ -47,9 +49,10 @@
 		{ id: 'DOC', labelKey: 'resources.filter.files' }
 	];
 
-	let resources = $state<Resource[]>([]);
+	const initialResourcesCache = tabCacheState.getResources(authState.currentUser?.id ?? null);
+	let resources = $state<Resource[]>(initialResourcesCache ?? []);
 	let orphanSummary = $state<OrphanScanSummary | null>(null);
-	let loading = $state(true);
+	let loading = $state(initialResourcesCache === null);
 	let scanning = $state(false);
 	const MEDIA_BATCH = 24;
 	let filterKind = $state<MediaKind>('ALL');
@@ -90,19 +93,25 @@
 	}
 
 	async function load(): Promise<void> {
-		loading = true;
+		loading = resources.length === 0;
 		try {
-			const [list, scan] = await Promise.all([
-				resourceApi.list(),
-				resourceApi.scanOrphans().catch(() => null)
-			]);
+			const list = await resourceApi.list();
 			resources = list;
-			orphanSummary = scan;
+			tabCacheState.setResources(authState.currentUser?.id ?? null, list);
 		} catch (err) {
 			toastState.show(err instanceof Error ? err.message : String(err), 'error');
 		} finally {
 			loading = false;
 		}
+		// Defer filesystem orphan scan so tab transition stays 100% instant on Android
+		setTimeout(() => {
+			void resourceApi
+				.scanOrphans()
+				.then((scan) => {
+					orphanSummary = scan;
+				})
+				.catch(() => {});
+		}, 400);
 	}
 
 	async function downloadResource(res: Resource): Promise<void> {

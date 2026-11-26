@@ -20,6 +20,7 @@
 -->
 
 <script lang="ts">
+	import 'leaflet/dist/leaflet.css';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { LocateFixed, Minus, Plus } from 'lucide-svelte';
 	import type * as LeafletNS from 'leaflet';

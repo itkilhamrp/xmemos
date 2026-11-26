@@ -51,12 +51,17 @@
 
 	/**
 	 * Smart container-width-aware column calculation:
-	 * - Mobile (< 768px): ALWAYS 1 column
+	 * - Mobile (< 768px): supports 1-column List or crisp 2-column Masonry (when container >= 300px)
 	 * - Desktop/Tablet: guarantees comfortable minimum card width (~275px+) so cards never crush
 	 */
+	let isMobileCompactTwoCol = $derived(layout !== 'list' && viewportWidth < 768);
+
 	let columnCount = $derived.by((): number => {
-		if (layout === 'list' || viewportWidth < 768) return 1;
+		if (layout === 'list') return 1;
 		const w = containerWidth > 0 ? containerWidth : viewportWidth;
+		if (viewportWidth < 768) {
+			return w >= 300 ? 2 : 1;
+		}
 		if (layout === '2') return w >= 540 ? 2 : 1;
 		if (layout === '3') return w >= 840 ? 3 : w >= 540 ? 2 : 1;
 		// 'auto': smart adaptive columns keeping >= 285px per card
@@ -85,11 +90,13 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="flex items-start gap-3.5">
+		<div
+			class="flex items-start {isMobileCompactTwoCol ? 'xm-masonry-compact gap-2.5' : 'gap-3.5'}"
+		>
 			{#each columns as col, colIdx (colIdx)}
-				<div class="flex min-w-0 flex-1 flex-col gap-3.5">
+				<div class="flex min-w-0 flex-1 flex-col {isMobileCompactTwoCol ? 'gap-2.5' : 'gap-3.5'}">
 					{#each col as view (view.memo.id)}
-						<div class="xm-memo-card">
+						<div class="xm-memo-card min-w-0">
 							{@render card(view)}
 						</div>
 					{/each}

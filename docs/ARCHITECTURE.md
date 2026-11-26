@@ -183,3 +183,15 @@ Modeled after Official Memos 26.10/26.11 (`usememos.com/docs/usage/memos` & `dem
 - **Android Native Kotlin First-Frame (`XmemosStartupOptimizer.kt`)**: Sets native Activity/WebView theme background color before first paint, tunes `WebSettings` (`LOAD_DEFAULT`, `offscreenPreRaster`, hardware layer), and prunes stale temp staging (>6h) + `thumbs/` (>48 MiB LRU) on a low-priority background executor.
 - **Desktop Native per OS/DE (`src-tauri/src/main.rs`, `state.rs`, `lib.rs`)**: Direct Win32 `advapi32.dll` registry FFI on Windows (`<0.1ms`, zero `reg.exe` spawns) + fast WebView2 args, zero-subprocess NVIDIA+Wayland `WEBKIT_DISABLE_DMABUF_RENDERER=1` guard on GNU/Linux, native WKWebView fast path on macOS, and background Rust 48 MiB LRU `thumbs/` pruning + `PRAGMA optimize`.
 - **Frame-0 Frontend Hydration (`+layout.svelte`, `memos.svelte.ts`)**: Synchronous Frame-0 memo snapshot hydration + single-rAF instant Desktop window reveal with strict `128 KB` / `7-day TTL` / `max 3 users` snapshot bounds.
+
+## v2.9.8 Instant Zero-Snapshot Android Tab Switching & SWR Tab Cache
+- **Zero-Snapshot GPU Route Slide (`+layout.svelte`, `src/app.css`)**: Replaces `document.startViewTransition()` with a non-blocking `.xm-route-stage` GPU `translate3d` slide (`170ms`), paired with idle SvelteKit 3 `preloadCode()` for all 5 primary routes so tab switching has zero snapshot stall and zero chunk-import delay.
+- **120fps Release-Commit Tabbar & SWR Tab Cache (`BottomTabbar.svelte`, `tab-cache.svelte.ts`)**: Keeps finger dragging 100% free of mid-drag route mounts and caches `/explore`, `/review` (500-memo cap), and `/resources` (400ms-deferred `scanOrphans()`) in memory keyed by `userId` for instant Frame-0 rendering.
+
+## v2.9.9 Mobile 2-Column Memo Masonry Layout
+- **Responsive Mobile Grid (`TimelineDisplayPopover.svelte`, `MemoMasonryGrid.svelte`, `src/app.css`)**: Exposes **List** (1 column) and **2 Columns** on mobile viewports (`< 768px`, container `>= 300px`), applying `.xm-masonry-compact` card spacing, `overflow-wrap: anywhere`, and capped preview media height (`168px`) for clean, lightweight Android rendering.
+
+## v2.9.10 Instant Android Cold-Start Critical Path
+- **Pre-Activity Native Prewarm (`XmemosEarlyStartupProvider.kt`)**: Pre-resolves `externalMediaDirs` into memory (`0ms` `getMediaRoot()`) and pre-warms `WebView.getCurrentWebViewPackage()` off the Main Thread before `MainActivity.onCreate()`.
+- **Frame-0 Bundle Diet & Zero-JS Boot Shell (`markdown.ts`, `OsmMapCanvas.svelte`, `src/app.html`)**: Dynamically imports KaTeX JS/CSS only on `$` math, scopes Leaflet CSS to `OsmMapCanvas.svelte`, and paints an inline theme-matched `#xm-boot-shell` before JS hydration.
+- **SQLite `PRAGMA user_version` Fast-Skip (`memos_schema.rs`, `local_schema.rs`)**: Skips redundant startup DDL parsing when `user_version` matches the current schema version.

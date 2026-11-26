@@ -378,18 +378,7 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
 
     @Suppress("DEPRECATION")
     private fun resolveMediaRootDir(): Pair<File, Boolean> {
-        val mediaDir = activity.externalMediaDirs?.firstOrNull { it != null }
-        val (root, isAndroidMedia) = if (mediaDir != null) {
-            Pair(mediaDir, true)
-        } else {
-            val fallback = activity.getExternalFilesDir(null) ?: activity.filesDir
-            Pair(fallback, false)
-        }
-
-        File(root, "assets/avatars").mkdirs()
-        File(root, "backups").mkdirs()
-        File(root, "temp").mkdirs()
-        return Pair(root, isAndroidMedia)
+        return XmemosEarlyStartupProvider.resolveAndCacheMediaRoot(activity.applicationContext)
     }
 
     @Command

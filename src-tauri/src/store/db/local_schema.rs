@@ -70,7 +70,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memo_fts USING fts5(
 );
 "#;
 
+const LOCAL_SCHEMA_USER_VERSION: i64 = 1;
+
 pub fn init_local_schema(conn: &Connection) -> AppResult<()> {
+    let current_ver: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap_or(0);
+    if current_ver == LOCAL_SCHEMA_USER_VERSION {
+        return Ok(());
+    }
     conn.execute_batch(LOCAL_SCHEMA_SQL)?;
+    let _ = conn.execute_batch(&format!("PRAGMA user_version = {LOCAL_SCHEMA_USER_VERSION};"));
     Ok(())
 }

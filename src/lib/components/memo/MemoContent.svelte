@@ -22,7 +22,7 @@
 <script lang="ts">
 	import { i18n } from '#lib/i18n/index.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
-	import { highlightHtmlMatches, renderMemoMarkdown } from '#lib/utils/markdown.ts';
+	import { highlightHtmlMatches, onKatexReady, renderMemoMarkdown } from '#lib/utils/markdown.ts';
 
 	interface Props {
 		content: string;
@@ -40,7 +40,16 @@
 		onSelectTag
 	}: Props = $props();
 
+	let katexTick = $state(0);
+	$effect(() => {
+		if (!content.includes('$')) return;
+		return onKatexReady(() => {
+			katexTick += 1;
+		});
+	});
+
 	let renderedHtml = $derived.by(() => {
+		void katexTick;
 		const base = renderMemoMarkdown(content);
 		return highlightTerms.length > 0 ? highlightHtmlMatches(base, highlightTerms) : base;
 	});

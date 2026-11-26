@@ -14,5 +14,9 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/xmemos_memo_widget_info" />
         </receiver>
+        <provider
+            android:name="org.xmemos.storage.XmemosEarlyStartupProvider"
+            android:authorities="${applicationId}.xmemos-early-startup"
+            android:exported="false" />
     </application>
 </manifest>

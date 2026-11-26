@@ -25,14 +25,14 @@
 	import { onMount } from 'svelte';
 	import { invoke, isTauri } from '@tauri-apps/api/core';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
-	import { goto, onNavigate } from '$app/navigation';
+	import { goto, onNavigate, preloadCode } from '$app/navigation';
 	import { page } from '$app/state';
 	import { App, Button, Dialog, DialogButton, Toast } from 'konsta/svelte';
 
 	import { shortcutApi } from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
 	import { initKeyboardViewportSync } from '#lib/utils/keyboard.svelte.ts';
-	import { resolveNavigationDirection } from '#lib/utils/route-transition.ts';
+	import { resolveNavigationDirection, type NavSlideDirection } from '#lib/utils/route-transition.ts';
 	import { systemApi } from '#lib/api/system.ts';
 	import { authState } from '#lib/state/auth.svelte.ts';
 	import { memosState } from '#lib/state/memos.svelte.ts';
@@ -66,49 +66,38 @@
 		memosState.hydrateSnapshot(authState.currentUser.id);
 	}
 
-	// GPU-composited directional slide page transition (PowerPoint-style push) via SvelteKit onNavigate + View Transitions API
-	let activeViewTransition: ViewTransition | null = null;
+	// Zero-snapshot, zero-input-blocking GPU directional slide transition (PowerPoint-style push)
+	// Runs purely on transform/opacity compositor without Android WebView startViewTransition bitmap stalls.
+	let routeStageEl = $state<HTMLDivElement | null>(null);
+	let pendingSlideDir: NavSlideDirection = 'none';
+	let slideCleanTimer: ReturnType<typeof setTimeout> | null = null;
+
 	onNavigate((navigation) => {
-		if (typeof document === 'undefined' || typeof document.startViewTransition !== 'function') {
-			return;
-		}
-		if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-			return;
-		}
+		if (typeof window === 'undefined') return;
+		if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 		const fromPath = navigation.from?.url.pathname ?? '';
 		const toPath = navigation.to?.url.pathname ?? '';
-		const direction = resolveNavigationDirection(fromPath, toPath);
-		if (direction === 'none') {
-			return;
-		}
+		pendingSlideDir = resolveNavigationDirection(fromPath, toPath);
 
-		// Cancel any in-flight transition immediately so rapid tab switches have zero queue lag
-		if (activeViewTransition) {
-			try {
-				activeViewTransition.skipTransition();
-			} catch {
-				// Ignore if transition already finished
+		return () => {
+			const dir = pendingSlideDir;
+			pendingSlideDir = 'none';
+			if (dir === 'none' || !routeStageEl) return;
+			if (slideCleanTimer) {
+				clearTimeout(slideCleanTimer);
+				slideCleanTimer = null;
 			}
-			activeViewTransition = null;
-		}
-
-		document.documentElement.dataset.navDir = direction;
-
-		return new Promise<void>((resolve) => {
-			const vt = document.startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
+			const el = routeStageEl;
+			el.classList.remove('xm-slide-forward', 'xm-slide-backward');
+			// Restart keyframe cleanly on next frame without stalling navigation
+			requestAnimationFrame(() => {
+				el.classList.add(dir === 'forward' ? 'xm-slide-forward' : 'xm-slide-backward');
+				slideCleanTimer = setTimeout(() => {
+					el.classList.remove('xm-slide-forward', 'xm-slide-backward');
+					slideCleanTimer = null;
+				}, 190);
 			});
-			activeViewTransition = vt;
-			void vt.finished
-				.catch(() => {})
-				.finally(() => {
-					if (activeViewTransition === vt) {
-						activeViewTransition = null;
-						delete document.documentElement.dataset.navDir;
-					}
-				});
-		});
+		};
 	});
 
 	async function openPendingShortcutMemo(): Promise<void> {
@@ -124,6 +113,7 @@
 	}
 
 	onMount(() => {
+		document.getElementById('xm-boot-shell')?.remove();
 		let mainWindowRevealed = false;
 		const revealMainWindow = () => {
 			if (mainWindowRevealed || !isDesktopTauri()) return;
@@ -137,6 +127,17 @@
 		if (!isStickyRoute && authState.hasHost) {
 			revealMainWindow();
 		}
+
+		// Preload primary tab JS chunks once idle so switching tabs has 0ms dynamic-import delay
+		const preloadTimer = !isStickyRoute
+			? setTimeout(() => {
+					void preloadCode('/').catch(() => {});
+					void preloadCode('/explore').catch(() => {});
+					void preloadCode('/review').catch(() => {});
+					void preloadCode('/resources').catch(() => {});
+					void preloadCode('/settings').catch(() => {});
+				}, 250)
+			: null;
 
 		const stopKeyboardSync = initKeyboardViewportSync();
 		let unlistenShortcut: (() => void) | null = null;
@@ -224,6 +225,8 @@
 			document.removeEventListener('gesturestart', blockAppGesture);
 			document.removeEventListener('gesturechange', blockAppGesture);
 			document.removeEventListener('gestureend', blockAppGesture);
+			if (preloadTimer) clearTimeout(preloadTimer);
+			if (slideCleanTimer) clearTimeout(slideCleanTimer);
 			stopKeyboardSync();
 			unlistenShortcut?.();
 			unlistenMainOpen?.();
@@ -438,7 +441,9 @@
 
 <!-- Konsta UI v5 iOS theme: dark={true} enables dark: variants controlled by <html class="dark"> -->
 <App theme="ios" dark={true} safeAreas>
-	{@render children()}
+	<div bind:this={routeStageEl} class="xm-route-stage">
+		{@render children()}
+	</div>
 
 	{#if !isStickyRoute}
 		<!-- Persistent mobile Tabbar mounted once at root for smooth native iOS slider transitions -->

@@ -63,7 +63,6 @@
 	let trackRectCache: DOMRect | null = null;
 	let pendingClientX: number | null = null;
 	let scrubRafId = 0;
-	let dwellTimer: ReturnType<typeof setTimeout> | null = null;
 	let lastNavigatedIndex = -1;
 
 	$effect(() => {
@@ -82,13 +81,6 @@
 			pillEl.style.transform = `translate3d(${idx * 100}%, 0, 0)`;
 		}
 	});
-
-	function clearDwellTimer(): void {
-		if (dwellTimer) {
-			clearTimeout(dwellTimer);
-			dwellTimer = null;
-		}
-	}
 
 	function navigateToIndex(index: number, fromScrub = false): void {
 		const clamped = Math.max(0, Math.min(TAB_COUNT - 1, index));
@@ -128,16 +120,6 @@
 		const candidate = Math.max(0, Math.min(TAB_COUNT - 1, Math.round(nextFloat)));
 		if (candidate !== hoverIndex) {
 			hoverIndex = candidate;
-			// Brief 95ms dwell triggers realtime navigation without blocking fast multi-tab glides
-			clearDwellTimer();
-			if (candidate !== lastNavigatedIndex) {
-				dwellTimer = setTimeout(() => {
-					dwellTimer = null;
-					if (dragging && hoverIndex === candidate && candidate !== lastNavigatedIndex) {
-						navigateToIndex(candidate, true);
-					}
-				}, 165);
-			}
 		}
 	}
 
@@ -173,7 +155,6 @@
 
 	function finishScrub(event: PointerEvent, commit: boolean): void {
 		if (pointerId !== event.pointerId) return;
-		clearDwellTimer();
 		if (scrubRafId !== 0) {
 			cancelAnimationFrame(scrubRafId);
 			scrubRafId = 0;
@@ -218,7 +199,6 @@
 	}
 
 	onDestroy(() => {
-		clearDwellTimer();
 		if (scrubRafId !== 0) {
 			cancelAnimationFrame(scrubRafId);
 		}

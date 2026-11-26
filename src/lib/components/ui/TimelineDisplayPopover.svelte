@@ -106,21 +106,24 @@
 		style={popoverStyle}
 		class="glass-elevated fixed z-[80] space-y-3.5 rounded-2xl border border-[var(--xm-divider)] p-3.5 shadow-2xl"
 	>
-		<!-- Layout Columns: Tablet & Desktop only (mobile always uses clean 1-column list) -->
-		<div class="hidden space-y-1.5 md:block">
+		<!-- Layout Columns: Mobile supports clean 1-Column List & 2-Column Grid; Tablet/Desktop adds 3 & Auto -->
+		<div class="space-y-1.5">
 			<div
-				class="grid grid-cols-4 gap-1 rounded-xl bg-[var(--xm-surface-subtle)] p-1"
+				class="grid grid-cols-2 gap-1 rounded-xl bg-[var(--xm-surface-subtle)] p-1 md:grid-cols-4"
 				role="radiogroup"
 				aria-label={i18n.t('feed.layoutLabel')}
 			>
 				{#each LAYOUT_OPTIONS as opt (opt.id)}
 					{@const IconComp = opt.icon}
-					{@const active = feedDisplayState.layout === opt.id}
+					{@const desktopOnly = opt.id === '3' || opt.id === 'auto'}
+					{@const active =
+						feedDisplayState.layout === opt.id ||
+						(opt.id === '2' && (feedDisplayState.layout === '3' || feedDisplayState.layout === 'auto') && typeof window !== 'undefined' && window.innerWidth < 768)}
 					<button
 						type="button"
 						role="radio"
 						aria-checked={active}
-						class="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-semibold transition-all cursor-pointer {active
+						class="{desktopOnly ? 'hidden md:inline-flex' : 'inline-flex'} h-8 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-semibold transition-all cursor-pointer {active
 							? 'bg-white text-[var(--xm-accent)] shadow-sm dark:bg-[#2c2c2e] dark:text-white'
 							: 'xm-text-secondary hover:text-[var(--xm-text-primary)]'}"
 						onclick={() => feedDisplayState.setLayout(opt.id)}

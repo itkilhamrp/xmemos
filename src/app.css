@@ -21,8 +21,6 @@
 
 @import 'tailwindcss';
 @import 'konsta/svelte/theme.css';
-@import 'katex/dist/katex.min.css';
-@import 'leaflet/dist/leaflet.css';
 
 /* ==========================================================================
    Xmemos iOS Design Tokens & WCAG AA/AAA High-Contrast Light / Dark Themes
@@ -1189,7 +1187,6 @@ input[type='search']::-webkit-search-results-decoration {
 	z-index: 30;
 	padding: 0 14px max(10px, env(safe-area-inset-bottom));
 	pointer-events: none;
-	view-transition-name: xm-bottom-tabbar;
 	transform: translate3d(0, 0, 0);
 	transition:
 		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -1224,8 +1221,10 @@ input[type='search']::-webkit-search-results-decoration {
 	contain: layout paint style;
 	transform: translate3d(0, 0, 0);
 	background: rgba(252, 252, 254, 0.94);
-	backdrop-filter: blur(10px) saturate(150%);
-	-webkit-backdrop-filter: blur(10px) saturate(150%);
+	backdrop-filter: blur(8px) saturate(140%);
+	-webkit-backdrop-filter: blur(8px) saturate(140%);
+	will-change: transform;
+	transform: translate3d(0, 0, 0);
 	border: 1px solid rgba(15, 23, 42, 0.09);
 	box-shadow:
 		inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
@@ -1479,13 +1478,20 @@ input[type='search']::-webkit-search-results-decoration {
 }
 
 /* ==========================================================================
-   PowerPoint-Style GPU Directional Slide Page Transitions (View Transitions API)
+   Zero-Snapshot GPU Directional Slide Page Transitions (120fps Android-Safe)
    ========================================================================== */
 
-@keyframes xm-slide-in-from-right {
+.xm-route-stage {
+	min-height: 100%;
+	will-change: transform, opacity;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+}
+
+@keyframes xm-route-slide-in-right {
 	from {
-		opacity: 0.72;
-		transform: translate3d(28%, 0, 0);
+		opacity: 0.82;
+		transform: translate3d(16%, 0, 0);
 	}
 	to {
 		opacity: 1;
@@ -1493,21 +1499,10 @@ input[type='search']::-webkit-search-results-decoration {
 	}
 }
 
-@keyframes xm-slide-out-to-left {
+@keyframes xm-route-slide-in-left {
 	from {
-		opacity: 1;
-		transform: translate3d(0, 0, 0);
-	}
-	to {
-		opacity: 0;
-		transform: translate3d(-18%, 0, 0);
-	}
-}
-
-@keyframes xm-slide-in-from-left {
-	from {
-		opacity: 0.72;
-		transform: translate3d(-28%, 0, 0);
+		opacity: 0.82;
+		transform: translate3d(-16%, 0, 0);
 	}
 	to {
 		opacity: 1;
@@ -1515,49 +1510,36 @@ input[type='search']::-webkit-search-results-decoration {
 	}
 }
 
-@keyframes xm-slide-out-to-right {
-	from {
-		opacity: 1;
-		transform: translate3d(0, 0, 0);
-	}
-	to {
-		opacity: 0;
-		transform: translate3d(18%, 0, 0);
-	}
+.xm-route-stage.xm-slide-forward {
+	animation: xm-route-slide-in-right 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Keep the floating Liquid Glass bottom tabbar pinned and completely static during page slides */
-::view-transition-group(xm-bottom-tabbar) {
-	animation: none;
-	z-index: 100;
-}
-
-::view-transition-old(xm-bottom-tabbar),
-::view-transition-new(xm-bottom-tabbar) {
-	animation: none;
-	mix-blend-mode: normal;
-}
-
-:root[data-nav-dir='forward']::view-transition-old(root) {
-	animation: 210ms cubic-bezier(0.22, 1, 0.36, 1) both xm-slide-out-to-left;
-}
-
-:root[data-nav-dir='forward']::view-transition-new(root) {
-	animation: 210ms cubic-bezier(0.22, 1, 0.36, 1) both xm-slide-in-from-right;
-}
-
-:root[data-nav-dir='backward']::view-transition-old(root) {
-	animation: 210ms cubic-bezier(0.22, 1, 0.36, 1) both xm-slide-out-to-right;
-}
-
-:root[data-nav-dir='backward']::view-transition-new(root) {
-	animation: 210ms cubic-bezier(0.22, 1, 0.36, 1) both xm-slide-in-from-left;
+.xm-route-stage.xm-slide-backward {
+	animation: xm-route-slide-in-left 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-	::view-transition-group(*),
-	::view-transition-old(*),
-	::view-transition-new(*) {
+	.xm-route-stage.xm-slide-forward,
+	.xm-route-stage.xm-slide-backward {
 		animation: none !important;
 	}
+}
+
+/* ==========================================================================
+   Mobile 2-Column Compact Masonry Card Refinement
+   ========================================================================== */
+
+.xm-masonry-compact article {
+	padding: 10px !important;
+	border-radius: 16px;
+	font-size: 13px;
+	line-height: 1.45;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.xm-masonry-compact article img,
+.xm-masonry-compact article video {
+	max-height: 168px;
+	object-fit: cover;
 }

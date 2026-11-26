@@ -18,13 +18,40 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { marked } from 'marked';
-import katex from 'katex';
 import DOMPurify from 'dompurify';
 
 import { escapeHtml, highlightCodeBlock } from './code-highlight.ts';
 
 const MAX_RENDER_CACHE = 250;
 const renderCache = new Map<string, string>();
+
+type KatexLike = {
+	renderToString: (tex: string, opts: { displayMode: boolean; throwOnError: boolean }) => string;
+};
+
+let katexEngine: KatexLike | null = null;
+let katexLoadingPromise: Promise<void> | null = null;
+const katexListeners = new Set<() => void>();
+
+export function onKatexReady(listener: () => void): () => void {
+	katexListeners.add(listener);
+	return () => {
+		katexListeners.delete(listener);
+	};
+}
+
+function triggerLazyKatexLoad(): void {
+	if (katexEngine || katexLoadingPromise || typeof window === 'undefined') return;
+	katexLoadingPromise = Promise.all([import('katex'), import('katex/dist/katex.min.css')])
+		.then(([mod]) => {
+			katexEngine = mod.default;
+			renderCache.clear();
+			for (const cb of katexListeners) cb();
+		})
+		.catch(() => {
+			katexLoadingPromise = null;
+		});
+}
 
 function renderMathExpressions(input: string): string {
 	if (!input.includes('$')) return input;
@@ -37,8 +64,12 @@ function renderMathExpressions(input: string): string {
 
 			// Block math: $$ ... $$
 			let out = seg.replace(/\$\$([\s\S]+?)\$\$/g, (_match, expr: string) => {
+				if (!katexEngine) {
+					triggerLazyKatexLoad();
+					return `<code>${escapeHtml(expr.trim())}</code>`;
+				}
 				try {
-					return `<div class="my-2 overflow-x-auto">${katex.renderToString(expr.trim(), {
+					return `<div class="my-2 overflow-x-auto">${katexEngine.renderToString(expr.trim(), {
 						displayMode: true,
 						throwOnError: false
 					})}</div>`;
@@ -49,8 +80,12 @@ function renderMathExpressions(input: string): string {
 
 			// Inline math: $...$
 			out = out.replace(/(?<!\$)\$([^$\n]+?)\$(?!\$)/g, (_match, expr: string) => {
+				if (!katexEngine) {
+					triggerLazyKatexLoad();
+					return `<code>${escapeHtml(expr.trim())}</code>`;
+				}
 				try {
-					return katex.renderToString(expr.trim(), {
+					return katexEngine.renderToString(expr.trim(), {
 						displayMode: false,
 						throwOnError: false
 					});
