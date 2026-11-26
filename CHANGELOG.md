@@ -5,6 +5,13 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2026-11-26
+
+### Fixed
+- **macOS DMG CI Packaging `hdiutil: couldn't eject "disk2" - Resource busy` (`.github/workflows/macos-release.yml`, `AGENTS.md`)**:
+  - Switched `macos-release.yml` from Tauri's vendored `bundle_dmg.sh` (`--bundles dmg`, which mounts an interstitial RW image that Spotlight/Finder locks and fails with `hdiutil` exit code 2 on macOS 15 runners — `tauri-apps/tauri#14686`) to building signed `.app` bundles (`--bundles app`) and packaging directly into verified read-only `UDZO` `.dmg` installers via `ditto` + `/Applications` symlink + mount-free `hdiutil create -srcfolder ... -format UDZO` + `hdiutil verify`.
+  - Locked this macOS packaging rule into `AGENTS.md` Invariant #5 so future AI updates never regress to `bundle_dmg.sh`.
+
 ## [2.9.0] - 2026-11-26
 
 ### Fixed

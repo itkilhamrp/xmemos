@@ -111,26 +111,56 @@ jobs:
           [ -n "${APPLE_TEAM_ID:-}" ] || unset APPLE_TEAM_ID
 
           pnpm build
-          pnpm tauri build --target aarch64-apple-darwin --bundles dmg
-          pnpm tauri build --target x86_64-apple-darwin --bundles dmg
+          # Build signed .app bundles directly (bypassing Tauri's vendored bundle_dmg.sh which hits
+          # hdiutil exit-2 'Resource busy' on macOS 15 GitHub runners — see tauri-apps/tauri#14686)
+          pnpm tauri build --target aarch64-apple-darwin --bundles app
+          pnpm tauri build --target x86_64-apple-darwin --bundles app
 
-      - name: Stage macOS DMG artifacts (arm64 & x64)
+      - name: Package & stage macOS DMG artifacts (arm64 & x64, mount-free UDZO)
         run: |
+          set -euo pipefail
           mkdir -p dist-release
 
-          ARM_DMG="$(find "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
-          if [ -z "${ARM_DMG}" ]; then
-            echo "ERROR: No macOS arm64 DMG produced." >&2
-            exit 1
-          fi
-          cp "${ARM_DMG}" "dist-release/Xmemos-v${APP_VERSION}-macos-arm64.dmg"
+          package_dmg() {
+            local arch_label="$1"
+            local target_triple="$2"
+            local app_path="src-tauri/target/${target_triple}/release/bundle/macos/Xmemos.app"
+            local out_dmg="dist-release/Xmemos-v${APP_VERSION}-macos-${arch_label}.dmg"
+            local stage_dir="${RUNNER_TEMP}/dmg-stage-${arch_label}"
 
-          X64_DMG="$(find "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
-          if [ -z "${X64_DMG}" ]; then
-            echo "ERROR: No macOS x64 DMG produced." >&2
-            exit 1
-          fi
-          cp "${X64_DMG}" "dist-release/Xmemos-v${APP_VERSION}-macos-x64.dmg"
+            if [ ! -d "${app_path}" ]; then
+              echo "ERROR: Expected macOS app bundle not found: ${app_path}" >&2
+              exit 1
+            fi
+
+            rm -rf "${stage_dir}" "${out_dmg}"
+            mkdir -p "${stage_dir}"
+            # ditto preserves 100% of macOS code signatures, symlinks, and bundle metadata
+            ditto "${app_path}" "${stage_dir}/Xmemos.app"
+            ln -s /Applications "${stage_dir}/Applications"
+
+            # Direct read-only UDZO image creation never mounts an interstitial RW disk image,
+            # completely eliminating Spotlight/Finder 'hdiutil: couldn't eject - Resource busy' failures.
+            local attempt=1
+            while true; do
+              if hdiutil create -volname "Xmemos" -srcfolder "${stage_dir}" -ov -format UDZO "${out_dmg}"; then
+                break
+              fi
+              if [ "${attempt}" -ge 3 ]; then
+                echo "ERROR: hdiutil create failed after 3 attempts for ${arch_label}" >&2
+                exit 1
+              fi
+              echo "WARN: hdiutil create attempt ${attempt} failed; retrying in 5s..." >&2
+              sleep 5
+              attempt=$((attempt + 1))
+            done
+
+            hdiutil verify "${out_dmg}"
+            rm -rf "${stage_dir}"
+          }
+
+          package_dmg "arm64" "aarch64-apple-darwin"
+          package_dmg "x64" "x86_64-apple-darwin"
 
           ls -lh dist-release/
 
