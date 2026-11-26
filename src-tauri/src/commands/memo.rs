@@ -145,6 +145,64 @@ fn validate_visibility(v: &str) -> AppResult<()> {
     }
 }
 
+/// Walks up COMMENT relations (with cycle guard) to resolve the top-level root parent memo's visibility.
+fn resolve_root_memo_visibility(
+    conn: &rusqlite::Connection,
+    start_memo_id: i64,
+) -> AppResult<Option<String>> {
+    let mut visited = std::collections::HashSet::new();
+    let mut current_id = start_memo_id;
+    visited.insert(current_id);
+
+    loop {
+        let parent_id: Option<i64> = conn
+            .query_row(
+                "SELECT related_memo_id FROM memo_relation WHERE memo_id = ?1 AND type = 'COMMENT' LIMIT 1",
+                params![current_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        match parent_id {
+            Some(pid) if visited.insert(pid) => current_id = pid,
+            _ => break,
+        }
+    }
+
+    let vis = memo::get_memo_by_id(conn, current_id)?.map(|m| m.visibility);
+    Ok(vis)
+}
+
+/// Cascades a root memo's updated visibility to all of its descendant comments.
+fn cascade_comment_visibility(
+    conn: &rusqlite::Connection,
+    root_id: i64,
+    visibility: &str,
+) -> AppResult<()> {
+    let mut visited = std::collections::HashSet::new();
+    let mut queue = std::collections::VecDeque::new();
+    visited.insert(root_id);
+    queue.push_back(root_id);
+
+    while let Some(parent_id) = queue.pop_front() {
+        let mut stmt = conn.prepare(
+            "SELECT memo_id FROM memo_relation WHERE related_memo_id = ?1 AND type = 'COMMENT'",
+        )?;
+        let children: Vec<i64> = stmt
+            .query_map(params![parent_id], |r| r.get(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for child_id in children {
+            if visited.insert(child_id) {
+                conn.execute(
+                    "UPDATE memo SET visibility = ?1 WHERE id = ?2",
+                    params![visibility, child_id],
+                )?;
+                queue.push_back(child_id);
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn memo_create(state: State<'_, AppState>, payload: CreateMemoPayload) -> AppResult<MemoView> {
     let current = require_authenticated_user(&state)?;
@@ -158,13 +216,20 @@ pub fn memo_create(state: State<'_, AppState>, payload: CreateMemoPayload) -> Ap
 
     let uid = uuid::Uuid::new_v4().simple().to_string();
     let created = state.with_memos_db(|conn| {
+        // Comments always inherit the top-level root parent memo's visibility
+        let effective_visibility = if let Some(parent_id) = payload.parent_memo_id {
+            resolve_root_memo_visibility(conn, parent_id)?.unwrap_or(payload.visibility)
+        } else {
+            payload.visibility
+        };
+
         let m = memo::create_memo(
             conn,
             &CreateMemoInput {
                 uid,
                 creator_id: current.id,
                 content: payload.content,
-                visibility: payload.visibility,
+                visibility: effective_visibility,
                 pinned: payload.pinned.unwrap_or(false),
                 created_ts: payload.created_ts,
                 location: payload.location,
@@ -300,12 +365,25 @@ pub fn memo_update(state: State<'_, AppState>, payload: UpdateMemoPayload) -> Ap
             ));
         }
 
+        let parent_comment_id: Option<i64> = conn
+            .query_row(
+                "SELECT related_memo_id FROM memo_relation WHERE memo_id = ?1 AND type = 'COMMENT' LIMIT 1",
+                params![payload.id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let effective_update_visibility = if let Some(pid) = parent_comment_id {
+            resolve_root_memo_visibility(conn, pid)?
+        } else {
+            payload.visibility.clone()
+        };
+
         let m = memo::update_memo(
             conn,
             &UpdateMemoInput {
                 id: payload.id,
                 content: payload.content,
-                visibility: payload.visibility,
+                visibility: effective_update_visibility.clone(),
                 pinned: payload.pinned,
                 row_status: payload.row_status,
                 created_ts: payload.created_ts,
@@ -313,6 +391,12 @@ pub fn memo_update(state: State<'_, AppState>, payload: UpdateMemoPayload) -> Ap
                 clear_location: payload.clear_location.unwrap_or(false),
             },
         )?;
+
+        if parent_comment_id.is_none() {
+            if let Some(ref new_vis) = effective_update_visibility {
+                cascade_comment_visibility(conn, m.id, new_vis)?;
+            }
+        }
 
         if let Some(ref res_ids) = payload.resource_ids {
             resource::bind_resources_to_memo(conn, m.id, res_ids, current.id)?;

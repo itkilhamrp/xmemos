@@ -180,6 +180,7 @@
 	<MemoEditor
 		opened={editSheetOpened}
 		{editingMemo}
+		isComment={Boolean(editingMemo && editingMemo.memo.id !== memoView.memo.id)}
 		onClose={() => {
 			editSheetOpened = false;
 			editingMemo = null;

@@ -34,6 +34,8 @@ export const systemApi = {
 	setLocalPref: (key: string, value: string): Promise<void> =>
 		callIpc<void>('system_set_local_pref', { key, value }),
 
+	isStickyLaunchMode: (): Promise<boolean> => callIpc<boolean>('system_is_sticky_launch_mode'),
+
 	showMainWindow: (): Promise<void> => callIpc<void>('app_show_main_window'),
 
 	setWindowThemeBg: (isDark: boolean): Promise<void> =>

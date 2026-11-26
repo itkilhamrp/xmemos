@@ -294,11 +294,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo '')"
-          if [ -n "${PREV_TAG}" ]; then
-            CHANGELOG="$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)')"
-          else
-            CHANGELOG="$(git log -n 20 --pretty=format:'- %s (%h)')"
+          CHANGELOG="$(APP_VERSION="${APP_VERSION}" node -e '
+            const fs = require("node:fs");
+            const ver = (process.env.APP_VERSION || "").trim();
+            if (!ver || !fs.existsSync("CHANGELOG.md")) process.exit(0);
+            const md = fs.readFileSync("CHANGELOG.md", "utf8").replace(/\r\n/g, "\n");
+            const esc = ver.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const startRe = new RegExp(`^##\\s+\\[${esc}\\][^\n]*$`, "m");
+            const startMatch = startRe.exec(md);
+            if (!startMatch) process.exit(0);
+            const afterHeading = md.slice(startMatch.index + startMatch[0].length);
+            const nextMatch = /^##\s+\[/m.exec(afterHeading);
+            const section = (nextMatch ? afterHeading.slice(0, nextMatch.index) : afterHeading).trim();
+            if (section) process.stdout.write(section);
+          ')"
+          if [ -z "${CHANGELOG}" ]; then
+            PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo '')"
+            if [ -n "${PREV_TAG}" ]; then
+              CHANGELOG="$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)')"
+            else
+              CHANGELOG="$(git log -n 20 --pretty=format:'- %s (%h)')"
+            fi
           fi
 
           CERT_SECTION=""
@@ -314,13 +330,16 @@ jobs:
           )
           fi
 
+          printf '%s\n' "${CHANGELOG}" > changelog-section.md
           cat << BODY_EOF > release-notes.md
           ## Xmemos v${APP_VERSION}
 
           Privacy-first, 100% offline microblogging and knowledge-capture app with 1:1 Official FOSS Memos SQLite compatibility.
 
-          ### Changelog
-          ${CHANGELOG}
+          ## Changelog
+          BODY_EOF
+          cat changelog-section.md >> release-notes.md
+          cat << BODY_EOF >> release-notes.md
 
           ### Multi-Platform Offline Packages
           | Platform | Package | Notes |

@@ -1236,6 +1236,7 @@ input[type='search']::-webkit-search-results-decoration {
 		0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
+/* Strict Konsta UI v5 iOS 26 Liquid Glass active lens (neutral frosted glass, zero blue fill, zero overshoot bounce) */
 .xm-ios-tabbar-pill {
 	position: absolute;
 	top: 4px;
@@ -1243,23 +1244,23 @@ input[type='search']::-webkit-search-results-decoration {
 	left: 4px;
 	border-radius: 9999px;
 	pointer-events: none;
-	background: rgba(0, 122, 255, 0.12);
-	border: 1px solid rgba(0, 122, 255, 0.16);
+	background: rgba(15, 23, 42, 0.075);
+	border: 0.5px solid rgba(255, 255, 255, 0.82);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.72),
-		0 2px 8px rgba(0, 122, 255, 0.1);
-	transition: transform 290ms cubic-bezier(0.22, 1, 0.36, 1);
+		inset 0 1px 0 rgba(255, 255, 255, 0.94),
+		0 1px 4px rgba(15, 23, 42, 0.06);
+	transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
 	will-change: transform;
 	backface-visibility: hidden;
 	-webkit-backface-visibility: hidden;
 }
 
 .dark .xm-ios-tabbar-pill {
-	background: rgba(10, 132, 255, 0.22);
-	border-color: rgba(10, 132, 255, 0.28);
+	background: rgba(255, 255, 255, 0.135);
+	border-color: rgba(255, 255, 255, 0.16);
 	box-shadow:
-		inset 0 0.5px 0 rgba(255, 255, 255, 0.14),
-		0 2px 10px rgba(0, 0, 0, 0.32);
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.24),
+		0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .xm-ios-tabbar-pill.is-dragging {
@@ -1364,8 +1365,19 @@ input[type='search']::-webkit-search-results-decoration {
 }
 
 /* Keep MemoEditor Konsta Sheet smoothly positioned above Android soft keyboard */
+/* Rock-solid top-anchored visual-viewport editor sheet on mobile Android: zero upward/downward keyboard jumping */
+@media (max-width: 767px) {
+	.xm-kb-editor-sheet {
+		top: var(--xm-vvt, 0px) !important;
+		bottom: auto !important;
+		height: var(--xm-vvh, 100dvh) !important;
+		max-height: var(--xm-vvh, 100dvh) !important;
+		border-radius: 0 !important;
+		transition: none !important;
+	}
+}
+
 .xm-kb-open .xm-kb-editor-sheet {
-	bottom: var(--xm-kb-inset, 0px) !important;
 	transition: none !important;
 }
 

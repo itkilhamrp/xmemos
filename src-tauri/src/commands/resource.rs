@@ -27,7 +27,8 @@ use serde::Deserialize;
 #[cfg(not(desktop))]
 use tauri::Manager;
 use tauri::State;
-#[cfg(desktop)]
+#[cfg(not(desktop))]
+use tauri_plugin_xmemos_storage::SaveToDownloadsRequest;
 use tauri_plugin_xmemos_storage::XmemosStorageExt;
 
 use crate::error::{AppError, AppResult};
@@ -240,27 +241,53 @@ fn save_bytes_for_platform(
 fn save_bytes_for_platform(
     app: &tauri::AppHandle,
     safe_name: &str,
-    _mime: &str,
+    mime: &str,
     bytes: &[u8],
 ) -> AppResult<Option<String>> {
-    let target_dir = app
+    // Stage bytes in app cache then commit into Android public Download/Xmemos via MediaStore.Downloads
+    let stage_dir = app
         .path()
-        .download_dir()
-        .or_else(|_| app.path().picture_dir())
-        .or_else(|_| app.path().document_dir())
+        .app_cache_dir()
         .or_else(|_| app.path().app_data_dir())
-        .map_err(|e| AppError::Internal(format!("Unable to resolve Downloads directory: {e}")))?;
+        .map_err(|e| AppError::Internal(format!("Unable to resolve cache directory: {e}")))?
+        .join("export_tmp");
+    fs::create_dir_all(&stage_dir)?;
 
-    fs::create_dir_all(&target_dir)?;
-    let dest = unique_download_path(&target_dir, safe_name);
-    fs::write(&dest, bytes)?;
+    let staged_name = format!("{}_{}", uuid::Uuid::new_v4().simple(), safe_name);
+    let staged_path = stage_dir.join(&staged_name);
+    fs::write(&staged_path, bytes)?;
 
-    Ok(Some(
-        dest.file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(safe_name)
-            .to_string(),
-    ))
+    let result = app.xmemos_storage().save_to_downloads(SaveToDownloadsRequest {
+        source_path: staged_path.to_string_lossy().to_string(),
+        filename: safe_name.to_string(),
+        mime_type: mime.to_string(),
+    });
+    let _ = fs::remove_file(&staged_path);
+
+    match result {
+        Ok(saved) => Ok(Some(saved.display_path)),
+        Err(plugin_err) => {
+            // Fallback for non-Android mobile targets if plugin call is unavailable
+            let target_dir = app
+                .path()
+                .download_dir()
+                .or_else(|_| app.path().app_data_dir())
+                .map_err(|e| {
+                    AppError::Internal(format!(
+                        "Failed to save via MediaStore ({plugin_err}) and fallback dir ({e})"
+                    ))
+                })?;
+            fs::create_dir_all(&target_dir)?;
+            let dest = unique_download_path(&target_dir, safe_name);
+            fs::write(&dest, bytes)?;
+            Ok(Some(
+                dest.file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(safe_name)
+                    .to_string(),
+            ))
+        }
+    }
 }
 
 #[tauri::command]

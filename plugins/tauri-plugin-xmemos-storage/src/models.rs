@@ -107,6 +107,30 @@ pub struct CreateMemoShortcutRequest {
     pub pinned: bool,
     #[serde(default)]
     pub color: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub attachment_count: u32,
+    #[serde(default)]
+    pub timestamp: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveToDownloadsRequest {
+    pub source_path: String,
+    pub filename: String,
+    pub mime_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveToDownloadsResponse {
+    pub display_path: String,
+    pub saved_uri: Option<String>,
+    pub bytes_written: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

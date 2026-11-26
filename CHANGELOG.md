@@ -5,6 +5,30 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-11-26
+
+### Added & Improved
+- **100% True Offline World Vector Map Engine (`src/lib/utils/offline-world-data.ts`, `src/lib/utils/offline-vector-layer.ts`, `src/lib/utils/osm-tiles.ts`, `src/lib/components/map/{OsmMapCanvas,LocationPreviewPopover}.svelte`)**:
+  - Added a zero-dependency, 60fps HTML5 Canvas Leaflet `GridLayer` (`createOfflineVectorTileLayer`, `zIndex: 1`) rendering simplified Natural Earth-derived continents, major islands (including Sumatra, Java, Kalimantan, Sulawesi, Papua, Bali/Nusa Tenggara, Japan, UK, Australia, New Zealand), lat/lng graticules, and 50+ global & Indonesian cities completely offline with zero internet required and instant Light/Dark theme redraws.
+  - Switched uncached/offline OSM tile fallbacks (`zIndex: 2`) to transparent 1×1 pixels so cached or online OpenStreetMap street tiles seamlessly overlay the crisp offline vector world map without ever showing blank/black squares.
+- **Konsta UI v5 iOS 26 Liquid Glass Mobile Bottom Tabbar + Realtime Scrubbing (`src/lib/components/layout/BottomTabbar.svelte`, `src/app.css`)**:
+  - Restored strict Konsta UI v5 iOS 26 Liquid Glass styling on `.xm-ios-tabbar-pill` (neutral frosted glass lens with hairline specular highlight, removing the blue active background fill).
+  - Upgraded horizontal finger scrubbing to `requestAnimationFrame`-throttled **realtime page switching** with boundary hysteresis (`0.36`), `pendingNavIndex` lock (eliminating release snap-back/bounce), and critically-damped `cubic-bezier(0.25, 1, 0.5, 1)` transitions.
+- **Rich Android Home-Screen Sticky Memo Widget (`plugins/tauri-plugin-xmemos-storage/android/src/main/res/layout/widget_memo_sticky.xml`, `XmemosMemoWidgetProvider.kt`, `XmemosStoragePlugin.kt`, `src/lib/api/shortcut.ts`, `MemoActionsSheet.svelte`)**:
+  - Upgraded the `@RemoteView`-safe Android home-screen sticky widget to render rich structured memo content: pin badge (`📌`) + relative timestamp, formatted checklists (`☑`/`☐`) and bullet points (`•`), plus a compact metadata footer (`#tags · 📍 location · 📎 attachments`) while remaining zero-service and lightweight.
+
+### Fixed
+- **Android File Manager Downloads & Share Card Export (`plugins/tauri-plugin-xmemos-storage/android/.../XmemosStoragePlugin.kt`, `plugins/tauri-plugin-xmemos-storage/src/{models,mobile}.rs`, `src-tauri/src/commands/resource.rs`)**:
+  - Replaced private sandbox `download_dir()` writes on Android with native Kotlin `saveToDownloads` backed by Android's official `MediaStore.Downloads.EXTERNAL_CONTENT_URI` (`RELATIVE_PATH = Download/Xmemos`, `IS_PENDING = 1 -> 0` on API 29+, and `Environment.DIRECTORY_DOWNLOADS/Xmemos` + `MediaScannerConnection` on API 24–28), so downloaded images, static files, and exported Share Card PNGs appear immediately in Android File Manager and Gallery.
+- **Memo Comment Visibility Inheritance (`src-tauri/src/commands/memo.rs`, `src/lib/components/memo/MemoEditor.svelte`, `src/routes/memo/[uid]/+page.svelte`)**:
+  - Removed the illogical `PRIVATE` / `PROTECTED` / `PUBLIC` visibility selector when composing or editing comments. Comments now strictly inherit the top-level root parent memo's visibility in Rust (`resolve_root_memo_visibility`) and automatically stay synced via `cascade_comment_visibility` whenever the parent memo's visibility changes.
+- **Android Memo Composer Keyboard Stability (`src/app.css`, `src/lib/components/memo/MemoEditor.svelte`)**:
+  - Locked `.xm-kb-editor-sheet` on mobile (`< 768px`) to the top of the visual viewport (`top: var(--xm-vvt); height: var(--xm-vvh);`) with a pinned header/toolbar, flexible scrollable textarea, and pinned footer so opening, closing, or resizing the Android soft keyboard never causes UI elements to jump up and down.
+- **GitHub Release Notes Sourced Directly from `CHANGELOG.md` (`.github/workflows/release.yml`, `AGENTS.md`)**:
+  - Replaced raw `git log` commit-subject release notes in `publish-release` with exact `## [${APP_VERSION}]` section extraction from `CHANGELOG.md` (falling back to `git log` only if no matching section exists) so published GitHub Releases display the full structured changelog.
+- **Desktop "Add to Desktop" Shortcut Single-Window MS Sticky Notes Launch (`src-tauri/src/{state,lib}.rs`, `src-tauri/src/commands/system.rs`, `src/lib/api/system.ts`, `src/routes/+layout.svelte`)**:
+  - Launching a Desktop Sticky Note shortcut (`--open-memo=<uid>`) now spawns **only** the floating `sticky-<uid>` window directly in Rust `setup()`, keeps `main` hidden + `set_skip_taskbar(true)` (`sticky_launch_only` guard), never double-opens the full Xmemos window, and cleanly exits when the last sticky window closes (while `↗ Open in Xmemos` still reveals the main window on demand).
+
 ## [2.7.35] - 2026-11-26
 
 ### Fixed

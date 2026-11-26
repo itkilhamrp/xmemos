@@ -22,7 +22,11 @@ package org.xmemos.storage
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Intent
+import android.media.MediaScannerConnection
+import android.os.Environment
+import android.provider.MediaStore
 import android.os.Bundle
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -88,6 +92,18 @@ class CreateMemoShortcutArgs {
     var title: String = ""
     var preview: String = ""
     var pinned: Boolean = false
+    var color: String? = null
+    var tags: Array<String> = emptyArray()
+    var location: String? = null
+    var attachmentCount: Int = 0
+    var timestamp: String? = null
+}
+
+@InvokeArg
+class SaveToDownloadsArgs {
+    var sourcePath: String = ""
+    var filename: String = "file"
+    var mimeType: String = "application/octet-stream"
 }
 
 @TauriPlugin
@@ -262,11 +278,34 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         val appWidgetManager = AppWidgetManager.getInstance(activity)
                         if (appWidgetManager != null && appWidgetManager.isRequestPinAppWidgetSupported) {
+                            val metaParts = mutableListOf<String>()
+                            val cleanTags = args.tags.map { it.trim().trimStart('#') }.filter { it.isNotEmpty() }.take(3)
+                            if (cleanTags.isNotEmpty()) {
+                                metaParts.add(cleanTags.joinToString(" ") { "#$it" })
+                            }
+                            val cleanLoc = args.location?.trim().orEmpty()
+                            if (cleanLoc.isNotEmpty()) {
+                                metaParts.add("\uD83D\uDCCD ${cleanLoc.take(24)}")
+                            }
+                            if (args.attachmentCount > 0) {
+                                metaParts.add("\uD83D\uDCCE ${args.attachmentCount}")
+                            }
+                            val richMeta = metaParts.joinToString(" · ")
+                            val cleanTs = args.timestamp?.trim().orEmpty()
+                            val richBadge = when {
+                                args.pinned && cleanTs.isNotEmpty() -> "\uD83D\uDCCC $cleanTs"
+                                args.pinned -> "\uD83D\uDCCC Xmemos"
+                                cleanTs.isNotEmpty() -> cleanTs
+                                else -> "Xmemos"
+                            }
+
                             XmemosMemoWidgetProvider.savePendingWidgetMemo(
                                 activity,
                                 uid,
                                 cleanTitle.take(48),
-                                longLabel
+                                longLabel,
+                                richMeta,
+                                richBadge
                             )
                             val provider = ComponentName(activity, XmemosMemoWidgetProvider::class.java)
                             val previewViews = XmemosMemoWidgetProvider.buildRemoteViews(
@@ -274,6 +313,8 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                                 memoUid = uid,
                                 title = cleanTitle.take(48),
                                 preview = longLabel,
+                                meta = richMeta,
+                                badge = richBadge,
                                 requestCode = uid.hashCode()
                             )
                             val extras = Bundle().apply {
@@ -341,6 +382,98 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
         File(root, "backups").mkdirs()
         File(root, "temp").mkdirs()
         return Pair(root, isAndroidMedia)
+    }
+
+    @Command
+    fun saveToDownloads(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(SaveToDownloadsArgs::class.java)
+            val srcFile = File(args.sourcePath)
+            if (!srcFile.exists() || !srcFile.isFile) {
+                invoke.reject("Source file does not exist: ${args.sourcePath}")
+                return
+            }
+
+            val safeName = args.filename
+                .replace(Regex("[/\\\\:*?\"<>|\\u0000]"), "_")
+                .trim()
+                .trimStart('.')
+                .ifEmpty { "file" }
+            val mime = args.mimeType.trim().ifEmpty { "application/octet-stream" }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = activity.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        "${Environment.DIRECTORY_DOWNLOADS}/Xmemos"
+                    )
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri == null) {
+                    invoke.reject("Failed to create MediaStore.Downloads entry for $safeName")
+                    return
+                }
+
+                var written = 0L
+                try {
+                    resolver.openOutputStream(uri)?.use { outStream ->
+                        FileInputStream(srcFile).use { inStream ->
+                            written = inStream.copyTo(outStream)
+                        }
+                    } ?: throw IllegalStateException("Unable to open MediaStore output stream")
+
+                    val doneValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    }
+                    resolver.update(uri, doneValues, null, null)
+                } catch (e: Exception) {
+                    runCatching { resolver.delete(uri, null, null) }
+                    throw e
+                }
+
+                val ret = JSObject()
+                ret.put("displayPath", "Download/Xmemos/$safeName")
+                ret.put("savedUri", uri.toString())
+                ret.put("bytesWritten", written)
+                invoke.resolve(ret)
+            } else {
+                @Suppress("DEPRECATION")
+                val pubDir = File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "Xmemos"
+                )
+                pubDir.mkdirs()
+                var dest = File(pubDir, safeName)
+                var idx = 1
+                val stem = dest.nameWithoutExtension.ifEmpty { "file" }
+                val ext = dest.extension
+                while (dest.exists() && idx < 9999) {
+                    val nextName = if (ext.isEmpty()) "$stem ($idx)" else "$stem ($idx).$ext"
+                    dest = File(pubDir, nextName)
+                    idx++
+                }
+                var written = 0L
+                FileInputStream(srcFile).use { inStream ->
+                    FileOutputStream(dest).use { outStream ->
+                        written = inStream.copyTo(outStream)
+                    }
+                }
+                MediaScannerConnection.scanFile(activity, arrayOf(dest.absolutePath), arrayOf(mime), null)
+
+                val ret = JSObject()
+                ret.put("displayPath", "Download/Xmemos/${dest.name}")
+                ret.put("savedUri", Uri.fromFile(dest).toString())
+                ret.put("bytesWritten", written)
+                invoke.resolve(ret)
+            }
+        } catch (e: Exception) {
+            invoke.reject("Failed to save to Android Downloads: ${e.message}")
+        }
     }
 
     @Command

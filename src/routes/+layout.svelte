@@ -114,9 +114,12 @@
 				await goto('/auth', { replaceState: true });
 				return;
 			}
-			// On Desktop, launching a Desktop Sticky Note shortcut opens the floating MS Sticky Note
-			// window directly while keeping the main window hidden (unless PIN-locked).
+			// On Desktop, if Rust launched strictly in MS Sticky Note shortcut mode, NEVER reveal main window
 			if (isDesktopTauri() && !isStickyRoute) {
+				const stickyOnly = await systemApi.isStickyLaunchMode().catch(() => false);
+				if (stickyOnly) {
+					return;
+				}
 				const pendingUid = await shortcutApi.consumePendingMemoShortcut();
 				if (pendingUid && authState.hasHost && !authState.isLocked) {
 					try {

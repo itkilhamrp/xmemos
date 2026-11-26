@@ -32,6 +32,7 @@
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import { formatCoordinates } from '#lib/utils/geocode.ts';
 	import { attachMapPinchZoomGuard, createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
+	import { createOfflineVectorTileLayer } from '#lib/utils/offline-vector-layer.ts';
 
 	let popoverEl = $state<HTMLDivElement | null>(null);
 	let mapEl = $state<HTMLDivElement | null>(null);
@@ -100,6 +101,9 @@
 		});
 
 		mapInst.attributionControl?.setPrefix(false);
+
+		const vectorLayer = createOfflineVectorTileLayer(leaflet, () => themeState.isDark);
+		vectorLayer.addTo(mapInst);
 
 		const tileLayer = createOfflineOsmTileLayer(
 			leaflet,

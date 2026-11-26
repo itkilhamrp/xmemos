@@ -100,4 +100,13 @@ impl<R: Runtime> XmemosStorage<R> {
             .run_mobile_plugin("consumePendingMemoShortcut", ())
             .map_err(Into::into)
     }
+
+    pub fn save_to_downloads(
+        &self,
+        req: SaveToDownloadsRequest,
+    ) -> Result<SaveToDownloadsResponse> {
+        self.0
+            .run_mobile_plugin("saveToDownloads", req)
+            .map_err(Into::into)
+    }
 }

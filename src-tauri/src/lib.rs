@@ -278,16 +278,103 @@ pub fn run() {
             // Failsafe reveal on Desktop so the frameless window can never stay hidden if frontend reveal is delayed
             #[cfg(desktop)]
             {
-                let launched_for_sticky = tauri_plugin_xmemos_storage::extract_open_memo_uid_from_args(
+                let sticky_uid = tauri_plugin_xmemos_storage::extract_open_memo_uid_from_args(
                     std::env::args(),
-                )
-                .is_some();
-                if !launched_for_sticky {
+                );
+                let mut opened_sticky_only = false;
+
+                if let Some(uid) = sticky_uid {
+                    let st = app.state::<AppState>();
+                    let has_host = st
+                        .with_memos_db(|conn| {
+                            let c: i64 = conn
+                                .query_row(
+                                    "SELECT COUNT(1) FROM user WHERE role = 'HOST' AND row_status = 'NORMAL'",
+                                    [],
+                                    |r| r.get(0),
+                                )
+                                .unwrap_or(0);
+                            Ok(c > 0)
+                        })
+                        .unwrap_or(false);
+                    let active_uid = st.current_user_id().ok().flatten();
+                    let has_pin_lock = active_uid
+                        .and_then(|user_id| {
+                            st.lock_local_db().ok().and_then(|local| {
+                                local
+                                    .query_row(
+                                        "SELECT pin_hash FROM user_lock WHERE user_id = ?1",
+                                        [user_id],
+                                        |r| r.get::<_, Option<String>>(0),
+                                    )
+                                    .ok()
+                                    .flatten()
+                            })
+                        })
+                        .is_some();
+
+                    if has_host && !has_pin_lock {
+                        st.sticky_launch_only
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        if let Some(main_win) = app.get_webview_window("main") {
+                            let _ = main_win.hide();
+                            let _ = main_win.set_skip_taskbar(true);
+                        }
+                        let _ = handle.xmemos_storage().consume_pending_memo_shortcut();
+
+                        let label = format!("sticky-{uid}");
+                        let short_uid: String = uid.chars().take(8).collect();
+                        let bg_color = if saved_theme.as_deref() == Some("light") {
+                            Color(255, 251, 235, 255)
+                        } else {
+                            Color(31, 28, 20, 255)
+                        };
+                        if tauri::WebviewWindowBuilder::new(
+                            handle,
+                            label.clone(),
+                            tauri::WebviewUrl::App(format!("sticky/{uid}").into()),
+                        )
+                        .title(format!("Xmemos Sticky Note [{short_uid}]"))
+                        .inner_size(332.0, 356.0)
+                        .min_inner_size(240.0, 200.0)
+                        .max_inner_size(720.0, 860.0)
+                        .resizable(true)
+                        .maximizable(false)
+                        .decorations(false)
+                        .background_color(bg_color)
+                        .center()
+                        .visible(false)
+                        .build()
+                        .is_ok()
+                        {
+                            opened_sticky_only = true;
+                            let failsafe_sticky = app.handle().clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(Duration::from_millis(700));
+                                if let Some(win) = failsafe_sticky.get_webview_window(&label) {
+                                    let _ = win.show();
+                                    let _ = win.set_focus();
+                                }
+                            });
+                        } else {
+                            st.sticky_launch_only
+                                .store(false, std::sync::atomic::Ordering::SeqCst);
+                        }
+                    }
+                }
+
+                if !opened_sticky_only {
                     let failsafe_handle = app.handle().clone();
                     std::thread::spawn(move || {
                         std::thread::sleep(Duration::from_millis(1200));
-                        if let Some(window) = failsafe_handle.get_webview_window("main") {
-                            let _ = window.show();
+                        let st = failsafe_handle.state::<AppState>();
+                        if !st
+                            .sticky_launch_only
+                            .load(std::sync::atomic::Ordering::SeqCst)
+                        {
+                            if let Some(window) = failsafe_handle.get_webview_window("main") {
+                                let _ = window.show();
+                            }
                         }
                     });
                 }
@@ -370,6 +457,7 @@ pub fn run() {
             commands::system::system_upsert_setting,
             commands::system::system_get_local_pref,
             commands::system::system_set_local_pref,
+            commands::system::system_is_sticky_launch_mode,
             commands::system::app_show_main_window,
             commands::system::system_set_window_theme_bg,
             commands::system::system_open_sticky_memo_window,

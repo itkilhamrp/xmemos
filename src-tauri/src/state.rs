@@ -19,6 +19,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::Connection;
@@ -35,6 +36,7 @@ pub struct AppState {
     pub memos_conn: Mutex<Option<Connection>>,
     pub local_conn: Mutex<Connection>,
     pub active_user_id: Mutex<Option<i64>>,
+    pub sticky_launch_only: AtomicBool,
 }
 
 impl AppState {
@@ -89,6 +91,7 @@ impl AppState {
             memos_conn: Mutex::new(Some(memos_conn)),
             local_conn: Mutex::new(local_conn),
             active_user_id: Mutex::new(restored_user_id),
+            sticky_launch_only: AtomicBool::new(false),
         })
     }
 

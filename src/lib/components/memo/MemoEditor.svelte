@@ -63,6 +63,7 @@
 		opened: boolean;
 		editingMemo?: MemoView | null;
 		parentMemoId?: number | null;
+		isComment?: boolean;
 		initialDate?: string | null;
 		initialLocation?: MemoLocation | null;
 		onClose: () => void;
@@ -73,12 +74,18 @@
 		opened,
 		editingMemo = null,
 		parentMemoId = null,
+		isComment = false,
 		initialDate = null,
 		initialLocation = null,
 		onClose,
 		onSaved
 	}: Props = $props();
 
+	let isCommentMode = $derived(
+		Boolean(parentMemoId) ||
+			isComment ||
+			Boolean(editingMemo?.relations.some((r) => r.memoId === editingMemo?.memo.id && r.type === 'COMMENT'))
+	);
 	let editorTab = $state<'write' | 'preview'>('write');
 	let content = $state('');
 	let visibility = $state<MemoVisibility>('PRIVATE');
@@ -627,7 +634,7 @@
 	{opened}
 	onBackdropClick={onClose}
 >
-	<div class="flex flex-col overflow-hidden" style="max-height: calc(var(--xm-vvh, 100dvh) - 16px);">
+	<div class="flex h-full flex-col overflow-hidden md:h-auto md:max-h-[calc(var(--xm-vvh,100dvh)-24px)]">
 		<!-- Fixed Header: Title, Close, Write/Preview Toggle, and Pinned Formatting Toolbar -->
 		<div class="shrink-0 space-y-2.5 border-b border-[var(--xm-divider)] px-4 pt-3.5 pb-3">
 			<div class="flex items-center justify-between gap-2">
@@ -762,7 +769,7 @@
 					>
 						<Link2 class="h-4 w-4" aria-hidden="true" />
 					</button>
-					{#if !parentMemoId}
+					{#if !isCommentMode}
 						<button
 							type="button"
 							aria-label={i18n.t('editor.addLocation')}
@@ -998,22 +1005,24 @@
 		<div
 			class="shrink-0 space-y-2.5 border-t border-[var(--xm-divider)] px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
 		>
-			<Segmented rounded strong>
-				<SegmentedButton active={visibility === 'PRIVATE'} onclick={() => (visibility = 'PRIVATE')}>
-					{i18n.t('visibility.private')}
-				</SegmentedButton>
-				<SegmentedButton
-					active={visibility === 'PROTECTED'}
-					onclick={() => (visibility = 'PROTECTED')}
-				>
-					{i18n.t('visibility.protected')}
-				</SegmentedButton>
-				<SegmentedButton active={visibility === 'PUBLIC'} onclick={() => (visibility = 'PUBLIC')}>
-					{i18n.t('visibility.public')}
-				</SegmentedButton>
-			</Segmented>
+			{#if !isCommentMode}
+				<Segmented rounded strong>
+					<SegmentedButton active={visibility === 'PRIVATE'} onclick={() => (visibility = 'PRIVATE')}>
+						{i18n.t('visibility.private')}
+					</SegmentedButton>
+					<SegmentedButton
+						active={visibility === 'PROTECTED'}
+						onclick={() => (visibility = 'PROTECTED')}
+					>
+						{i18n.t('visibility.protected')}
+					</SegmentedButton>
+					<SegmentedButton active={visibility === 'PUBLIC'} onclick={() => (visibility = 'PUBLIC')}>
+						{i18n.t('visibility.public')}
+					</SegmentedButton>
+				</Segmented>
+			{/if}
 
-			{#if !parentMemoId}
+			{#if !isCommentMode}
 				<div class="flex flex-wrap items-center justify-between gap-2 text-xs xm-text-secondary">
 					<div class="flex items-center gap-1.5">
 						<Clock class="h-3.5 w-3.5 shrink-0 xm-text-muted" aria-hidden="true" />

@@ -1,6 +1,6 @@
 [package]
 name = "xmemos"
-version = "2.7.35"
+version = "2.8.0"
 description = "Privacy-first 100% offline Android microblogging app with 1:1 Official Memos SQLite compatibility"
 authors = ["Xmemos Contributors"]
 license = "AGPL-3.0-or-later"

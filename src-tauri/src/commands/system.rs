@@ -131,8 +131,23 @@ pub fn system_set_local_pref(
 /// Reveals and focuses the main window once the frontend has painted its first frame,
 /// eliminating gray/white/black OS & WebView startup flashes.
 #[tauri::command]
-pub fn app_show_main_window(app: AppHandle) -> AppResult<()> {
+pub fn system_is_sticky_launch_mode(state: State<'_, AppState>) -> bool {
+    state
+        .sticky_launch_only
+        .load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub fn app_show_main_window(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    if state
+        .sticky_launch_only
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return Ok(());
+    }
     if let Some(window) = app.get_webview_window("main") {
+        #[cfg(desktop)]
+        let _ = window.set_skip_taskbar(false);
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -295,11 +310,21 @@ fn validate_internal_route(route: &str) -> AppResult<&str> {
 
 /// Focuses the main Xmemos window and navigates it to an internal route (e.g. `/memo/<uid>`, `/map?memo=<uid>`).
 #[tauri::command]
-pub async fn system_focus_main_route(app: AppHandle, route: String) -> AppResult<()> {
+pub async fn system_focus_main_route(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    route: String,
+) -> AppResult<()> {
     let safe_route = validate_internal_route(&route)?;
+    state
+        .sticky_launch_only
+        .store(false, std::sync::atomic::Ordering::SeqCst);
     if let Some(main_win) = app.get_webview_window("main") {
         #[cfg(desktop)]
-        let _ = main_win.unminimize();
+        {
+            let _ = main_win.set_skip_taskbar(false);
+            let _ = main_win.unminimize();
+        }
         let _ = main_win.show();
         let _ = main_win.set_focus();
         let _ = app.emit_to("main", "xmemos:navigate-main", safe_route);
@@ -309,9 +334,13 @@ pub async fn system_focus_main_route(app: AppHandle, route: String) -> AppResult
 
 /// Focuses the main Xmemos window and navigates straight to `/memo/<uid>`.
 #[tauri::command]
-pub async fn system_focus_main_memo(app: AppHandle, memo_uid: String) -> AppResult<()> {
+pub async fn system_focus_main_memo(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    memo_uid: String,
+) -> AppResult<()> {
     let uid = validate_sticky_memo_uid(&memo_uid)?;
-    system_focus_main_route(app, format!("/memo/{uid}")).await
+    system_focus_main_route(app, state, format!("/memo/{uid}")).await
 }
 
 /// Cross-OS Always-on-Top toggle for floating Desktop Sticky Note windows (`sticky-*`).

@@ -37,6 +37,10 @@ export interface CreateMemoShortcutPayload {
 	preview: string;
 	pinned: boolean;
 	color?: StickyColorId;
+	tags?: string[];
+	location?: string | null;
+	attachmentCount?: number;
+	timestamp?: string | null;
 }
 
 export interface CreateMemoShortcutResult {
@@ -130,7 +134,12 @@ export function saveStickyPrefs(memoUid: string, prefs: StickyWindowPrefs): void
  * for Android Home Screen Sticky Widgets/Shortcuts and Desktop OS launchers.
  */
 export function buildMemoShortcutMeta(content: string): { title: string; preview: string } {
-	const plain = stripMarkdownToPlainText(content).replace(/\r\n/g, '\n');
+	const normalized = content
+		.replace(/\r\n/g, '\n')
+		.replace(/^\s*[-*+]\s+\[[xX]\]\s+/gm, '☑ ')
+		.replace(/^\s*[-*+]\s+\[\s?\]\s+/gm, '☐ ')
+		.replace(/^\s*[-*+]\s+/gm, '• ');
+	const plain = stripMarkdownToPlainText(normalized);
 	const lines = plain
 		.split('\n')
 		.map((l) => l.trim())
@@ -139,7 +148,7 @@ export function buildMemoShortcutMeta(content: string): { title: string; preview
 	const firstLine = lines[0] ?? 'Xmemos Memo';
 	const title = firstLine.length > 48 ? `${firstLine.slice(0, 45).trimEnd()}...` : firstLine;
 	const joined = lines.join('\n');
-	const preview = joined.length > 220 ? `${joined.slice(0, 217).trimEnd()}...` : joined || title;
+	const preview = joined.length > 360 ? `${joined.slice(0, 357).trimEnd()}...` : joined || title;
 	return { title, preview };
 }
 

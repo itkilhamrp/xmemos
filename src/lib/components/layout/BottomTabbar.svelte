@@ -40,7 +40,7 @@
 	let currentPath = $derived(page.url.pathname);
 	let visible = $derived(currentPath !== '/auth');
 
-	let activeIndex = $derived.by(() => {
+	let routeIndex = $derived.by(() => {
 		const idx = NAV_ITEMS.findIndex((item) => {
 			if (item.path === '/') return currentPath === '/';
 			return currentPath === item.path || currentPath.startsWith(`${item.path}/`);
@@ -55,32 +55,66 @@
 	let didScrub = false;
 	/** Continuous floating tab index [0 .. TAB_COUNT - 1] while finger-scrubbing */
 	let dragIndex = $state<number | null>(null);
+	/** Locks the pill on the target tab while SvelteKit navigation settles (zero snap-back/bounce) */
+	let pendingNavIndex = $state<number | null>(null);
+	let lastRealtimeIndex = -1;
+	let trackRectCache: DOMRect | null = null;
+	let pendingClientX: number | null = null;
+	let scrubRafId = 0;
 
-	let pillPosition = $derived(dragIndex !== null ? dragIndex : activeIndex);
+	$effect(() => {
+		if (pendingNavIndex !== null && routeIndex === pendingNavIndex) {
+			pendingNavIndex = null;
+		}
+	});
+
+	let settledIndex = $derived(pendingNavIndex !== null ? pendingNavIndex : routeIndex);
+	let pillPosition = $derived(dragIndex !== null ? dragIndex : settledIndex);
 	let highlightedIndex = $derived(
-		dragIndex !== null ? Math.max(0, Math.min(TAB_COUNT - 1, Math.round(dragIndex))) : activeIndex
+		dragIndex !== null
+			? Math.max(0, Math.min(TAB_COUNT - 1, Math.round(dragIndex)))
+			: settledIndex
 	);
 
-	function navigateToIndex(index: number): void {
+	function navigateToIndex(index: number, fromScrub = false): void {
 		const clamped = Math.max(0, Math.min(TAB_COUNT - 1, index));
 		const target = NAV_ITEMS[clamped];
 		if (!target) return;
 		if (currentPath === target.path) {
-			if (typeof window !== 'undefined') {
+			pendingNavIndex = null;
+			if (!fromScrub && typeof window !== 'undefined') {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
 			}
 			return;
 		}
-		void goto(target.path);
+		pendingNavIndex = clamped;
+		void goto(target.path, { keepFocus: true });
 	}
 
 	function pointerXToFloatIndex(clientX: number): number {
-		if (!trackEl) return activeIndex;
-		const rect = trackEl.getBoundingClientRect();
-		if (rect.width <= 0) return activeIndex;
-		const slotWidth = rect.width / TAB_COUNT;
-		const raw = (clientX - rect.left - slotWidth / 2) / slotWidth;
+		const rect = trackRectCache ?? trackEl?.getBoundingClientRect();
+		if (!rect || rect.width <= 0) return settledIndex;
+		const innerWidth = Math.max(1, rect.width - 8);
+		const slotWidth = innerWidth / TAB_COUNT;
+		const raw = (clientX - (rect.left + 4) - slotWidth / 2) / slotWidth;
 		return Math.max(0, Math.min(TAB_COUNT - 1, raw));
+	}
+
+	function flushScrubFrame(): void {
+		scrubRafId = 0;
+		if (!dragging || pendingClientX === null) return;
+		const nextFloat = pointerXToFloatIndex(pendingClientX);
+		dragIndex = nextFloat;
+
+		// Hysteresis (0.36) prevents rapid oscillation when finger hovers right on a tab boundary
+		const candidate = Math.max(0, Math.min(TAB_COUNT - 1, Math.round(nextFloat)));
+		if (
+			candidate !== lastRealtimeIndex &&
+			Math.abs(nextFloat - candidate) <= 0.36
+		) {
+			lastRealtimeIndex = candidate;
+			navigateToIndex(candidate, true);
+		}
 	}
 
 	function handlePointerDown(event: PointerEvent): void {
@@ -88,12 +122,14 @@
 		pointerId = event.pointerId;
 		startX = event.clientX;
 		didScrub = false;
+		lastRealtimeIndex = settledIndex;
+		trackRectCache = trackEl?.getBoundingClientRect() ?? null;
 	}
 
 	function handlePointerMove(event: PointerEvent): void {
 		if (pointerId !== event.pointerId || !trackEl) return;
 		const delta = Math.abs(event.clientX - startX);
-		if (!dragging && delta > 7) {
+		if (!dragging && delta > 6) {
 			dragging = true;
 			didScrub = true;
 			try {
@@ -103,13 +139,22 @@
 			}
 		}
 		if (dragging) {
-			dragIndex = pointerXToFloatIndex(event.clientX);
+			pendingClientX = event.clientX;
+			if (scrubRafId === 0) {
+				scrubRafId = requestAnimationFrame(flushScrubFrame);
+			}
 		}
 	}
 
 	function finishScrub(event: PointerEvent, commit: boolean): void {
 		if (pointerId !== event.pointerId) return;
-		const finalIndex = dragging ? Math.round(pointerXToFloatIndex(event.clientX)) : null;
+		if (scrubRafId !== 0) {
+			cancelAnimationFrame(scrubRafId);
+			scrubRafId = 0;
+		}
+		const finalIndex = dragging
+			? Math.max(0, Math.min(TAB_COUNT - 1, Math.round(pointerXToFloatIndex(event.clientX))))
+			: null;
 		if (trackEl) {
 			try {
 				if (trackEl.hasPointerCapture(event.pointerId)) {
@@ -120,10 +165,17 @@
 			}
 		}
 		pointerId = null;
+		pendingClientX = null;
+		trackRectCache = null;
 		dragging = false;
-		dragIndex = null;
 		if (commit && finalIndex !== null) {
-			navigateToIndex(finalIndex);
+			pendingNavIndex = finalIndex;
+			dragIndex = null;
+			if (finalIndex !== lastRealtimeIndex) {
+				navigateToIndex(finalIndex, true);
+			}
+		} else {
+			dragIndex = null;
 		}
 	}
 
@@ -132,12 +184,12 @@
 			didScrub = false;
 			return;
 		}
-		navigateToIndex(index);
+		navigateToIndex(index, false);
 	}
 </script>
 
 {#if visible}
-	<!-- Silky 60/120fps GPU-composited iOS 26 floating pill Tabbar with 1:1 finger scrubbing -->
+	<!-- Authentic Konsta UI v5 iOS 26 Liquid Glass Tabbar with 60/120fps realtime scrubbing -->
 	<nav
 		aria-label={i18n.t('nav.primaryNav')}
 		class="xm-ios-tabbar-shell md:hidden"
@@ -154,11 +206,11 @@
 			onpointerup={(e) => finishScrub(e, true)}
 			onpointercancel={(e) => finishScrub(e, false)}
 		>
-			<!-- Pure transform: translate3d sliding glass indicator pill (zero layout reflow) -->
+			<!-- Pure transform: translate3d neutral Liquid Glass sliding lens (zero blue fill, zero bounce) -->
 			<div
 				class="xm-ios-tabbar-pill"
 				class:is-dragging={dragging}
-				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(calc(${pillPosition} * 100%), 0, 0)${dragging ? ' scale(1.045)' : ''};`}
+				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(calc(${pillPosition} * 100%), 0, 0);`}
 				aria-hidden="true"
 			></div>
 
@@ -169,10 +221,14 @@
 					type="button"
 					class="xm-ios-tabbar-item"
 					class:is-active={active}
-					aria-current={activeIndex === idx ? 'page' : undefined}
+					aria-current={settledIndex === idx ? 'page' : undefined}
 					onclick={() => handleTabClick(idx)}
 				>
-					<IconComp class="xm-ios-tabbar-icon h-[20px] w-[20px]" strokeWidth={active ? 2.25 : 1.85} aria-hidden="true" />
+					<IconComp
+						class="xm-ios-tabbar-icon h-[20px] w-[20px]"
+						strokeWidth={active ? 2.2 : 1.8}
+						aria-hidden="true"
+					/>
 					<span class="xm-ios-tabbar-label">{i18n.t(item.labelKey)}</span>
 				</button>
 			{/each}

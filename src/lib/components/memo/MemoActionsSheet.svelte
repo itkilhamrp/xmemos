@@ -42,6 +42,7 @@
 	import { toastState } from '#lib/state/toast.svelte.ts';
 	import { stripMarkdownToPlainText } from '#lib/utils/markdown.ts';
 	import { renderMemoShareCardPng } from '#lib/utils/share-card.ts';
+	import { formatRelativeTime } from '#lib/utils/date.ts';
 	import { saveBlobWithNativeDialog } from '#lib/utils/download.ts';
 	import { buildMemoShortcutMeta, loadStickyPrefs, shortcutApi } from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
@@ -130,12 +131,20 @@
 		try {
 			const { title, preview } = buildMemoShortcutMeta(req.view.memo.content);
 			const stickyPrefs = loadStickyPrefs(req.view.memo.uid);
+			const loc = req.view.memo.payload.location;
+			const locationLabel = loc
+				? (loc.placeholder?.trim() || `${loc.latitude.toFixed(3)}, ${loc.longitude.toFixed(3)}`)
+				: null;
 			const res = await shortcutApi.createMemoShortcut({
 				memoUid: req.view.memo.uid,
 				title,
 				preview,
 				pinned: req.view.memo.pinned,
-				color: stickyPrefs.color
+				color: stickyPrefs.color,
+				tags: req.view.memo.payload.tags ?? [],
+				location: locationLabel,
+				attachmentCount: req.view.resources.length,
+				timestamp: formatRelativeTime(req.view.memo.createdTs)
 			});
 			if (res.created) {
 				toastState.show(

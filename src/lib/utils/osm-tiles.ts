@@ -21,6 +21,9 @@ import type * as LeafletNS from 'leaflet';
 
 export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const OSM_TILE_CACHE_NAME = 'xmemos-osm-tiles-v1';
+// 1x1 transparent PNG so uncached/offline OSM tiles reveal the 60fps offline vector world map underneath
+const TRANSPARENT_TILE_DATA_URL =
+	'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 /**
  * Dynamically imports Leaflet + its stylesheet and safely unwraps ESM/CJS default exports.
@@ -69,7 +72,7 @@ export function createOfflineOsmTileLayer(
 			img.setAttribute('role', 'presentation');
 
 			const url = (this as unknown as LeafletNS.TileLayer).getTileUrl(coords);
-			const fallback = createOfflineFallbackDataUrl(getIsDark());
+			const fallback = TRANSPARENT_TILE_DATA_URL;
 			let finished = false;
 
 			const finish = (err?: Error) => {
@@ -155,6 +158,7 @@ export function createOfflineOsmTileLayer(
 		opts: LeafletNS.TileLayerOptions
 	) => LeafletNS.TileLayer)(OSM_TILE_URL, {
 		maxZoom: 18,
+		zIndex: 2,
 		attribution
 	});
 }

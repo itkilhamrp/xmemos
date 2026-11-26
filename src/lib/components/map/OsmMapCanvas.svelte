@@ -28,6 +28,7 @@
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import type { MemoLocation, MemoView } from '#lib/types/memo.ts';
 	import { attachMapPinchZoomGuard, createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
+	import { createOfflineVectorTileLayer } from '#lib/utils/offline-vector-layer.ts';
 
 	export interface MapCluster {
 		id: string;
@@ -64,6 +65,7 @@
 	let map = $state<LeafletNS.Map | null>(null);
 	let markerLayer: LeafletNS.LayerGroup | null = null;
 	let droppedLayer: LeafletNS.LayerGroup | null = null;
+	let offlineVectorLayer: LeafletNS.GridLayer | null = null;
 	let zoomLevel = $state(2);
 	let hasFittedInitial = false;
 	let resizeObserver: ResizeObserver | null = null;
@@ -232,6 +234,11 @@
 
 			mapInst.attributionControl?.setPrefix(false);
 
+			// Layer 1 (zIndex 1): 100% offline 60fps Canvas vector world map (continents, islands, cities)
+			offlineVectorLayer = createOfflineVectorTileLayer(leaflet, () => themeState.isDark);
+			offlineVectorLayer.addTo(mapInst);
+
+			// Layer 2 (zIndex 2): Cached/online OpenStreetMap street tiles (transparent fallback when offline)
 			const tileLayer = createOfflineOsmTileLayer(
 				leaflet,
 				() => themeState.isDark,
@@ -292,6 +299,7 @@
 		map = null;
 		markerLayer = null;
 		droppedLayer = null;
+		offlineVectorLayer = null;
 	});
 
 	$effect(() => {
@@ -340,6 +348,12 @@
 			_map.setView([latitude, longitude], 12, { animate: true });
 			hasFittedInitial = true;
 		});
+	});
+
+	$effect(() => {
+		const _dark = themeState.isDark;
+		void _dark;
+		offlineVectorLayer?.redraw();
 	});
 </script>
 
