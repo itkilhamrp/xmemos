@@ -95,12 +95,14 @@ impl AppState {
         })
     }
 
-    /// Runs non-blocking housekeeping (stale temp cleanup + FTS5 parity check) on a background thread
-    /// after the application window is already open and interactive.
+    /// Runs non-blocking housekeeping (stale temp cleanup, 48 MiB LRU thumbnail cap, FTS5 parity check,
+    /// and SQLite PRAGMA optimize) on a background thread after the app window is already interactive.
     pub fn run_background_startup_maintenance(&self) {
+        const MAX_THUMBS_CACHE_BYTES: u64 = 48 * 1024 * 1024;
         let _ = fs::create_dir_all(self.media_root.join("backups"));
         let _ = fs::create_dir_all(self.media_root.join("temp"));
         let _ = fs::create_dir_all(self.cache_dir.join("thumbs"));
+
         let temp_dir = self.media_root.join("temp");
         if let Ok(entries) = fs::read_dir(&temp_dir) {
             for entry in entries.flatten() {
@@ -112,7 +114,41 @@ impl AppState {
                 }
             }
         }
+
+        // Enforce strict 48 MiB LRU cap on thumbnail cache so cache stays fast and never bloats
+        let thumbs_dir = self.thumbs_dir();
+        if let Ok(entries) = fs::read_dir(&thumbs_dir) {
+            let mut files: Vec<(PathBuf, u64, std::time::SystemTime)> = Vec::new();
+            let mut total_bytes: u64 = 0;
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Ok(meta) = entry.metadata() {
+                        let len = meta.len();
+                        let modified = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+                        total_bytes = total_bytes.saturating_add(len);
+                        files.push((path, len, modified));
+                    }
+                }
+            }
+            if total_bytes > MAX_THUMBS_CACHE_BYTES {
+                files.sort_by_key(|(_, _, modified)| *modified);
+                for (path, len, _) in files {
+                    if total_bytes <= MAX_THUMBS_CACHE_BYTES {
+                        break;
+                    }
+                    if fs::remove_file(&path).is_ok() {
+                        total_bytes = total_bytes.saturating_sub(len);
+                    }
+                }
+            }
+        }
+
         let _ = crate::service::search::ensure_fts_index_ready(self);
+        let _ = self.with_memos_db(|conn| {
+            let _ = conn.execute_batch("PRAGMA optimize;");
+            Ok(())
+        });
     }
 
     /// Performs a fast, non-blocking WAL passive checkpoint and SQLite query-planner optimize on exit

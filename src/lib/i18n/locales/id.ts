@@ -164,6 +164,9 @@ export const id: Record<TranslationKey, string> = {
 	'editor.emptyError': 'Tulis isi memo atau lampirkan minimal satu berkas',
 	'editor.attachedFiles': 'Berkas Terlampir ({count})',
 	'editor.uploading': 'Mengunggah {count}...',
+	'editor.compressingFile': 'Mengompres media…',
+	'editor.uploadingFile': 'Mengunggah berkas statis…',
+	'editor.uploadSizeExceeded': 'Berkas "{filename}" ({size} MB) melebihi batas unggah {limit} MB.',
 	'editor.timestampAuto': 'Sekarang (Otomatis)',
 	'editor.setCustomTime': 'Atur Tanggal & Waktu',
 	'editor.resetToNow': 'Reset ke Sekarang',
@@ -447,6 +450,15 @@ export const id: Record<TranslationKey, string> = {
 	'system.disallowRegTitle': 'Nonaktifkan Pendaftaran Mandiri',
 	'system.disallowRegSub': 'Hanya HOST/ADMIN yang dapat membuat akun lokal tambahan',
 	'system.updated': 'Pengaturan sistem diperbarui',
+	'system.adminOnlyNote': 'Pengaturan sistem hanya dapat diubah oleh akun HOST atau ADMIN.',
+	'system.uploadPolicy': 'Batas Ukuran Unggah Berkas Statis',
+	'system.uploadLimitTitle': 'Ukuran Maksimal Unggah (MB)',
+	'system.uploadLimitDesc': 'Mengatur batas ukuran berkas maksimal untuk gambar, video, audio, dan lampiran statis. Isi 0 untuk tanpa batas. Khusus akun HOST / ADMIN.',
+	'system.uploadUnlimited': 'Tanpa Batas',
+	'system.uploadLimitHint': 'Masukkan angka bulat antara 0 (tanpa batas) hingga 2048 MB.',
+	'system.uploadLimitInvalid': 'Masukkan angka bulat yang valid antara 0 hingga 2048 MB.',
+	'system.uploadLimitSaved': 'Batas ukuran unggah diatur ke {mb} MB',
+	'system.uploadLimitSavedUnlimited': 'Batas ukuran unggah diatur ke Tanpa Batas',
 
 	// Storage & Backup
 	'storage.title': 'Penyimpanan & Cadangan',
@@ -491,6 +503,7 @@ export const id: Record<TranslationKey, string> = {
 	'backup.recent': 'Riwayat Cadangan',
 	'backup.confirmRestoreTitle': 'Konfirmasi Pemulihan Atomik',
 	'backup.restored': 'Memulihkan {memos} memo & {files} berkas media',
+	'backup.exportCancelled': 'Ekspor cadangan dibatalkan — tidak ada berkas duplikat yang disimpan.',
 
 	// About & Error
 	'about.title': 'Tentang',

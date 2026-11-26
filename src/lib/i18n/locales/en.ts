@@ -162,6 +162,9 @@ export const en = {
 	'editor.emptyError': 'Write a memo or attach at least one file',
 	'editor.attachedFiles': 'Attached Files ({count})',
 	'editor.uploading': 'Uploading {count}...',
+	'editor.compressingFile': 'Compressing media…',
+	'editor.uploadingFile': 'Uploading static file…',
+	'editor.uploadSizeExceeded': 'File "{filename}" ({size} MB) exceeds the {limit} MB upload limit.',
 	'editor.timestampAuto': 'Now (Auto)',
 	'editor.setCustomTime': 'Set Date & Time',
 	'editor.resetToNow': 'Reset to Now',
@@ -445,6 +448,15 @@ export const en = {
 	'system.disallowRegTitle': 'Disallow User Registration',
 	'system.disallowRegSub': 'Only HOST/ADMIN can create additional local accounts',
 	'system.updated': 'System setting updated',
+	'system.adminOnlyNote': 'System settings can only be modified by HOST or ADMIN accounts.',
+	'system.uploadPolicy': 'Static File Upload Limit',
+	'system.uploadLimitTitle': 'Maximum Upload Size (MB)',
+	'system.uploadLimitDesc': 'Controls the maximum allowed file size for images, videos, audio, and static attachments. Set 0 for unlimited. Editable by HOST / ADMIN only.',
+	'system.uploadUnlimited': 'Unlimited',
+	'system.uploadLimitHint': 'Enter a whole number between 0 (unlimited) and 2048 MB.',
+	'system.uploadLimitInvalid': 'Enter a valid whole number between 0 and 2048 MB.',
+	'system.uploadLimitSaved': 'Upload size limit set to {mb} MB',
+	'system.uploadLimitSavedUnlimited': 'Upload size limit set to Unlimited',
 
 	// Storage & Backup
 	'storage.title': 'Storage & Backup',
@@ -489,6 +501,7 @@ export const en = {
 	'backup.recent': 'Recent Backups',
 	'backup.confirmRestoreTitle': 'Confirm Atomic Restore',
 	'backup.restored': 'Restored {memos} memos & {files} media files',
+	'backup.exportCancelled': 'Backup export cancelled — no duplicate file was saved.',
 
 	// About & Error
 	'about.title': 'About',

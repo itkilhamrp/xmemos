@@ -47,6 +47,7 @@
 
 	import { memoApi } from '#lib/api/memo.ts';
 	import { resourceApi } from '#lib/api/resource.ts';
+	import { systemApi } from '#lib/api/system.ts';
 	import type { MemoLocation, MemoView, MemoVisibility } from '#lib/types/memo.ts';
 	import type { Resource } from '#lib/types/resource.ts';
 	import { memosState } from '#lib/state/memos.svelte.ts';
@@ -56,7 +57,7 @@
 	import { prepareSmartUpload } from '#lib/utils/media-compress.ts';
 	import MemoContent from './MemoContent.svelte';
 	import AttachmentGrid from '#lib/components/media/AttachmentGrid.svelte';
-	import AttachmentPreviewStrip from '#lib/components/media/AttachmentPreviewStrip.svelte';
+	import AttachmentPreviewStrip, { type UploadProgressItem } from '#lib/components/media/AttachmentPreviewStrip.svelte';
 	import OsmMapCanvas from '#lib/components/map/OsmMapCanvas.svelte';
 
 	interface Props {
@@ -100,7 +101,10 @@
 	let locatingGps = $state(false);
 	let attachedResources = $state<Resource[]>([]);
 	let localPreviewUrls = $state<Map<number, string>>(new Map());
-	let uploadingCount = $state(0);
+	let activeUploads = $state<UploadProgressItem[]>([]);
+	let uploadingCount = $derived(activeUploads.length);
+	let maxUploadSizeMb = $state<number>(32);
+	let uploadValidationError = $state<string | null>(null);
 	let dragActive = $state(false);
 	let saving = $state(false);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
@@ -223,6 +227,19 @@
 		untrack(() => {
 		editorTab = 'write';
 		dragActive = false;
+		uploadValidationError = null;
+		void systemApi
+			.listSettings()
+			.then((settings) => {
+				const found = settings.find((s) => s.name === 'max-upload-size-mb');
+				if (found) {
+					const parsed = Number.parseInt(found.value, 10);
+					if (Number.isFinite(parsed) && parsed >= 0) {
+						maxUploadSizeMb = parsed;
+					}
+				}
+			})
+			.catch(() => {});
 		if (curEditing) {
 			revokeAllPreviewUrls();
 			content = editingMemo.memo.content;
@@ -328,10 +345,61 @@
 		textareaEl?.focus();
 	}
 
+	function checkUploadSizeLimit(filename: string, sizeBytes: number): boolean {
+		if (maxUploadSizeMb <= 0) return true;
+		const limitBytes = maxUploadSizeMb * 1024 * 1024;
+		if (sizeBytes > limitBytes) {
+			const actualMb = (sizeBytes / (1024 * 1024)).toFixed(1);
+			const msg = i18n.t('editor.uploadSizeExceeded', {
+				filename,
+				size: actualMb,
+				limit: String(maxUploadSizeMb)
+			});
+			uploadValidationError = msg;
+			toastState.show(msg, 'error');
+			return false;
+		}
+		return true;
+	}
+
+	function startProgressTicker(uploadId: string, maxPercent = 92): ReturnType<typeof setInterval> {
+		return setInterval(() => {
+			activeUploads = activeUploads.map((item) =>
+				item.id === uploadId && item.percent < maxPercent
+					? { ...item, percent: Math.min(maxPercent, item.percent + Math.max(2, (maxPercent - item.percent) * 0.18)) }
+					: item
+			);
+		}, 180);
+	}
+
+	function updateUploadItem(uploadId: string, patch: Partial<UploadProgressItem>): void {
+		activeUploads = activeUploads.map((item) => (item.id === uploadId ? { ...item, ...patch } : item));
+	}
+
+	function removeUploadItem(uploadId: string): void {
+		activeUploads = activeUploads.filter((item) => item.id !== uploadId);
+	}
+
 	async function uploadFiles(files: File[]): Promise<void> {
 		if (files.length === 0) return;
-		uploadingCount += files.length;
-		for (const file of files) {
+		uploadValidationError = null;
+		const validFiles = files.filter((file) => checkUploadSizeLimit(file.name, file.size));
+		if (validFiles.length === 0) return;
+
+		for (const file of validFiles) {
+			const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+			const isCompressible = file.type.startsWith('image/') || file.type.startsWith('video/');
+			activeUploads = [
+				...activeUploads,
+				{
+					id: uploadId,
+					filename: file.name,
+					sizeBytes: file.size,
+					percent: 12,
+					stage: isCompressible ? 'compressing' : 'uploading'
+				}
+			];
+			const ticker = startProgressTicker(uploadId, 92);
 			const shouldPreviewObjectUrl =
 				file.type.startsWith('image/') ||
 				file.type.startsWith('video/') ||
@@ -339,11 +407,13 @@
 			const objectUrl = shouldPreviewObjectUrl ? URL.createObjectURL(file) : null;
 			try {
 				const prepared = await prepareSmartUpload(file);
+				updateUploadItem(uploadId, { stage: 'uploading', percent: 62 });
 				const res = await resourceApi.uploadBytes({
 					filename: prepared.filename,
 					mimeType: prepared.mimeType,
 					base64Data: prepared.base64Data
 				});
+				updateUploadItem(uploadId, { percent: 100 });
 				if (objectUrl) {
 					const next = new Map(localPreviewUrls);
 					next.set(res.id, objectUrl);
@@ -353,34 +423,56 @@
 				toastState.show(`Attached ${res.filename}`, 'success');
 			} catch (err) {
 				if (objectUrl) URL.revokeObjectURL(objectUrl);
-				toastState.show(
-					`Upload failed: ${err instanceof Error ? err.message : String(err)}`,
-					'error'
-				);
+				const msg = err instanceof Error ? err.message : String(err);
+				uploadValidationError = msg;
+				toastState.show(`Upload failed: ${msg}`, 'error');
 			} finally {
-				uploadingCount = Math.max(0, uploadingCount - 1);
+				clearInterval(ticker);
+				removeUploadItem(uploadId);
 			}
 		}
 	}
 
 	async function handlePickAttachment(): Promise<void> {
+		uploadValidationError = null;
 		try {
 			const picked = await resourceApi.pickDocument(
 				['image/*', 'video/*', 'audio/*', 'application/pdf', '*/*'],
 				true
 			);
 			if (!picked.cancelled && picked.localPath && picked.filename) {
-				uploadingCount += 1;
+				if (picked.size > 0 && !checkUploadSizeLimit(picked.filename, picked.size)) {
+					return;
+				}
+				const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+				const isCompressible = Boolean(picked.mimeType?.startsWith('image/') || picked.mimeType?.startsWith('video/'));
+				activeUploads = [
+					...activeUploads,
+					{
+						id: uploadId,
+						filename: picked.filename,
+						sizeBytes: picked.size ?? 0,
+						percent: 20,
+						stage: isCompressible ? 'compressing' : 'uploading'
+					}
+				];
+				const ticker = startProgressTicker(uploadId, 92);
 				try {
 					const res = await resourceApi.importFile({
 						localPath: picked.localPath,
 						filename: picked.filename,
 						mimeType: picked.mimeType ?? undefined
 					});
+					updateUploadItem(uploadId, { percent: 100 });
 					attachedResources = [...attachedResources, res];
 					toastState.show(`Attached ${res.filename}`, 'success');
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					uploadValidationError = msg;
+					toastState.show(`Upload failed: ${msg}`, 'error');
 				} finally {
-					uploadingCount = Math.max(0, uploadingCount - 1);
+					clearInterval(ticker);
+					removeUploadItem(uploadId);
 				}
 				return;
 			}
@@ -872,11 +964,29 @@
 						</div>
 					{/if}
 
+					{#if uploadValidationError}
+						<div
+							role="alert"
+							class="flex items-start justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300"
+						>
+							<span>{uploadValidationError}</span>
+							<button
+								type="button"
+								aria-label={i18n.t('common.close')}
+								class="shrink-0 rounded-full p-0.5 hover:bg-rose-500/15"
+								onclick={() => (uploadValidationError = null)}
+							>
+								<X class="h-3.5 w-3.5" aria-hidden="true" />
+							</button>
+						</div>
+					{/if}
+
 					<!-- Pre-save static file & image upload preview strip -->
 					<AttachmentPreviewStrip
 						resources={attachedResources}
 						previewUrls={localPreviewUrls}
 						{uploadingCount}
+						{activeUploads}
 						onRemove={handleRemoveAttachment}
 					/>
 

@@ -100,6 +100,13 @@ class CreateMemoShortcutArgs {
 }
 
 @InvokeArg
+class CompressVideoArgs {
+    var sourcePath: String = ""
+    var maxShortSide: Int? = null
+    var targetBitrate: Int? = null
+}
+
+@InvokeArg
 class SaveToDownloadsArgs {
     var sourcePath: String = ""
     var filename: String = "file"
@@ -122,6 +129,7 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun load(webView: WebView) {
         super.load(webView)
+        XmemosStartupOptimizer.applyOnLoad(activity, webView)
         extractMemoUidFromIntent(activity.intent)?.let { uid ->
             pendingShortcutMemoUid = uid
         }
@@ -730,6 +738,25 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                 .build()
 
             prompt.authenticate(promptInfo)
+        }
+    }
+
+    @Command
+    fun compressVideo(invoke: Invoke) {
+        val args = invoke.parseArgs(CompressVideoArgs::class.java)
+        XmemosVideoCompressor.compress(
+            context = activity,
+            sourcePath = args.sourcePath,
+            maxShortSideArg = args.maxShortSide,
+            targetBitrateArg = args.targetBitrate,
+        ) { outcome ->
+            val ret = JSObject()
+            ret.put("compressed", outcome.compressed)
+            ret.put("outputPath", outcome.outputPath)
+            ret.put("mimeType", outcome.mimeType)
+            ret.put("originalBytes", outcome.originalBytes)
+            ret.put("outputBytes", outcome.outputBytes)
+            invoke.resolve(ret)
         }
     }
 }

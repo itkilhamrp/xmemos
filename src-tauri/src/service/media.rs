@@ -34,9 +34,12 @@ use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::resource::{self, CreateResourceInput, Resource};
 
-const MAX_IMAGE_EDGE_PX: u32 = 2048;
+const MAX_IMAGE_EDGE_PX: u32 = 1920;
 const MAX_DECODE_PIXELS: u64 = 100_000_000; // 100 MP decompression-bomb guard
-const JPEG_CRISP_QUALITY: u8 = 84;
+const JPEG_CRISP_QUALITY: u8 = 78;
+const JPEG_COMPACT_QUALITY: u8 = 74;
+const WEBP_ALREADY_COMPACT_BYTES: usize = 512 * 1024;
+const LARGE_OPAQUE_THRESHOLD_BYTES: usize = 180 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -286,6 +289,12 @@ pub fn optimize_static_upload(
     };
 
     let was_resized = orig_w > MAX_IMAGE_EDGE_PX || orig_h > MAX_IMAGE_EDGE_PX;
+
+    // Fast-path: preserve already-compact WebP files (e.g. WebView native libwebp lossy VP8 output)
+    if mime_type == "image/webp" && !was_resized && bytes.len() <= WEBP_ALREADY_COMPACT_BYTES {
+        return fallback();
+    }
+
     let working = if was_resized {
         decoded.resize(MAX_IMAGE_EDGE_PX, MAX_IMAGE_EDGE_PX, FilterType::Lanczos3)
     } else {
@@ -294,8 +303,10 @@ pub fn optimize_static_upload(
 
     let has_alpha = has_non_opaque_alpha(&working);
     let mut candidates: Vec<(Vec<u8>, &'static str, &'static str)> = Vec::new();
+    let webp_lossless = encode_webp_lossless(&working);
+    let webp_len = webp_lossless.as_ref().map(Vec::len);
 
-    if let Some(webp_bytes) = encode_webp_lossless(&working) {
+    if let Some(webp_bytes) = webp_lossless {
         candidates.push((webp_bytes, "webp", "image/webp"));
     }
 
@@ -304,10 +315,21 @@ pub fn optimize_static_upload(
             candidates.push((png_bytes, "png", "image/png"));
         }
     } else {
-        if let Some(jpg_bytes) = encode_jpeg_crisp(&working, JPEG_CRISP_QUALITY) {
-            candidates.push((jpg_bytes, "jpg", "image/jpeg"));
+        let jpeg_quality = if bytes.len() >= LARGE_OPAQUE_THRESHOLD_BYTES || was_resized {
+            JPEG_COMPACT_QUALITY
+        } else {
+            JPEG_CRISP_QUALITY
+        };
+        if let Some(jpg_bytes) = encode_jpeg_crisp(&working, jpeg_quality) {
+            // If lossless WebP is within 8% of JPEG size, keep lossless WebP for 100% crisp UI/text clarity
+            let webp_is_competitive = webp_len
+                .map(|wl| wl <= jpg_bytes.len().saturating_mul(108) / 100)
+                .unwrap_or(false);
+            if !webp_is_competitive {
+                candidates.push((jpg_bytes, "jpg", "image/jpeg"));
+            }
         }
-        // Also test PNG for flat UI/diagrams where lossless PNG might beat JPEG
+        // Also test Best-Adaptive PNG for flat UI/diagrams where lossless PNG might beat JPEG
         if mime_type == "image/png" {
             if let Some(png_bytes) = encode_png_best(&working) {
                 candidates.push((png_bytes, "png", "image/png"));
@@ -327,7 +349,6 @@ pub fn optimize_static_upload(
         return fallback();
     }
 
-    // If lossless WebP is within 5% of JPEG on a non-resized/resized photo, prefer WebP for 100% crispness.
     (
         replace_extension(filename, best_ext),
         best_bytes,

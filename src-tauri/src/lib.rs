@@ -366,7 +366,7 @@ pub fn run() {
                 if !opened_sticky_only {
                     let failsafe_handle = app.handle().clone();
                     std::thread::spawn(move || {
-                        std::thread::sleep(Duration::from_millis(1200));
+                        std::thread::sleep(Duration::from_millis(450));
                         let st = failsafe_handle.state::<AppState>();
                         if !st
                             .sticky_launch_only
@@ -467,6 +467,7 @@ pub fn run() {
             // Backup
             commands::backup::backup_export_db,
             commands::backup::backup_export_full,
+            commands::backup::backup_finalize_export,
             commands::backup::backup_list_history,
             commands::backup::backup_preview_import,
             commands::backup::backup_execute_import,

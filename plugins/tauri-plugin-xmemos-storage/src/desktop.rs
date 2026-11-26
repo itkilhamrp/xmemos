@@ -282,4 +282,15 @@ impl<R: Runtime> XmemosStorage<R> {
             .and_then(|mut guard| guard.take());
         Ok(PendingMemoShortcutResponse { memo_uid })
     }
+
+    pub fn compress_video(&self, req: CompressVideoRequest) -> Result<CompressVideoResponse> {
+        let orig = fs::metadata(&req.source_path).map(|m| m.len()).unwrap_or(0);
+        Ok(CompressVideoResponse {
+            compressed: false,
+            output_path: req.source_path,
+            mime_type: "video/mp4".to_string(),
+            original_bytes: orig,
+            output_bytes: orig,
+        })
+    }
 }

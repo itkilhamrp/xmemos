@@ -25,15 +25,17 @@
 	import { onMount } from 'svelte';
 	import { invoke, isTauri } from '@tauri-apps/api/core';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
-	import { goto } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { App, Button, Dialog, DialogButton, Toast } from 'konsta/svelte';
 
 	import { shortcutApi } from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
 	import { initKeyboardViewportSync } from '#lib/utils/keyboard.svelte.ts';
+	import { resolveNavigationDirection } from '#lib/utils/route-transition.ts';
 	import { systemApi } from '#lib/api/system.ts';
 	import { authState } from '#lib/state/auth.svelte.ts';
+	import { memosState } from '#lib/state/memos.svelte.ts';
 	import { confirmDeleteState } from '#lib/state/confirm-delete.svelte.ts';
 	import { desktopLayoutState } from '#lib/state/desktop-layout.svelte.ts';
 	import { i18n } from '#lib/i18n/index.svelte.ts';
@@ -60,6 +62,54 @@
 	confirmDeleteState.init();
 	desktopLayoutState.init();
 	authState.hydrateFromCache();
+	if (authState.currentUser?.id) {
+		memosState.hydrateSnapshot(authState.currentUser.id);
+	}
+
+	// GPU-composited directional slide page transition (PowerPoint-style push) via SvelteKit onNavigate + View Transitions API
+	let activeViewTransition: ViewTransition | null = null;
+	onNavigate((navigation) => {
+		if (typeof document === 'undefined' || typeof document.startViewTransition !== 'function') {
+			return;
+		}
+		if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+		const fromPath = navigation.from?.url.pathname ?? '';
+		const toPath = navigation.to?.url.pathname ?? '';
+		const direction = resolveNavigationDirection(fromPath, toPath);
+		if (direction === 'none') {
+			return;
+		}
+
+		// Cancel any in-flight transition immediately so rapid tab switches have zero queue lag
+		if (activeViewTransition) {
+			try {
+				activeViewTransition.skipTransition();
+			} catch {
+				// Ignore if transition already finished
+			}
+			activeViewTransition = null;
+		}
+
+		document.documentElement.dataset.navDir = direction;
+
+		return new Promise<void>((resolve) => {
+			const vt = document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+			activeViewTransition = vt;
+			void vt.finished
+				.catch(() => {})
+				.finally(() => {
+					if (activeViewTransition === vt) {
+						activeViewTransition = null;
+						delete document.documentElement.dataset.navDir;
+					}
+				});
+		});
+	});
 
 	async function openPendingShortcutMemo(): Promise<void> {
 		if (!authState.hasHost || isStickyRoute) return;
@@ -74,14 +124,19 @@
 	}
 
 	onMount(() => {
+		let mainWindowRevealed = false;
 		const revealMainWindow = () => {
-			if (!isDesktopTauri()) return;
+			if (mainWindowRevealed || !isDesktopTauri()) return;
+			mainWindowRevealed = true;
 			requestAnimationFrame(() => {
-				requestAnimationFrame(() => {
-					void systemApi.showMainWindow().catch(() => {});
-				});
+				void systemApi.showMainWindow().catch(() => {});
 			});
 		};
+
+		// Instant Frame-1 reveal on Desktop (Rust app_show_main_window safely ignores sticky-only launches)
+		if (!isStickyRoute && authState.hasHost) {
+			revealMainWindow();
+		}
 
 		const stopKeyboardSync = initKeyboardViewportSync();
 		let unlistenShortcut: (() => void) | null = null;

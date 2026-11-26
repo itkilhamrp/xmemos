@@ -21,4 +21,5 @@ pub mod auth;
 pub mod backup;
 pub mod media;
 pub mod search;
+pub mod video;
 pub mod window_pin;

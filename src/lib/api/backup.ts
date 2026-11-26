@@ -33,6 +33,17 @@ export const backupApi = {
 	exportFull: (scope: BackupScope = 'ACTIVE_USER'): Promise<ExportResult> =>
 		callIpc<ExportResult>('backup_export_full', { scope }),
 
+	finalizeExport: (
+		stagedPath: string,
+		savedDestination: string | null,
+		result: ExportResult | null
+	): Promise<void> =>
+		callIpc<void>('backup_finalize_export', {
+			stagedPath,
+			savedDestination,
+			result
+		}),
+
 	listHistory: (): Promise<BackupHistoryEntry[]> =>
 		callIpc<BackupHistoryEntry[]>('backup_list_history'),
 

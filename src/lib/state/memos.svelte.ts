@@ -26,11 +26,43 @@ import { filterState } from './filters.svelte';
 const PAGE_SIZE = 20;
 const SNAPSHOT_PREFIX = 'xmemos.memo_snapshot.v1.';
 const MAX_SNAPSHOT_ITEMS = 15;
+const MAX_SNAPSHOT_BYTES = 128 * 1024;
+const SNAPSHOT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_CACHED_USERS = 3;
 
 interface MemoSnapshot {
+	savedAt?: number;
 	items: MemoView[];
 	tags: TagCount[];
 	heatmap: HeatmapDay[];
+}
+
+function pruneExcessUserSnapshots(keepKey: string): void {
+	try {
+		const entries: { key: string; savedAt: number }[] = [];
+		for (let i = 0; i < localStorage.length; i += 1) {
+			const k = localStorage.key(i);
+			if (!k || !k.startsWith(SNAPSHOT_PREFIX) || k === keepKey) continue;
+			let savedAt = 0;
+			try {
+				const parsed = JSON.parse(localStorage.getItem(k) ?? '{}') as Partial<MemoSnapshot>;
+				savedAt = typeof parsed.savedAt === 'number' ? parsed.savedAt : 0;
+			} catch {
+				savedAt = 0;
+			}
+			entries.push({ key: k, savedAt });
+		}
+		if (entries.length >= MAX_CACHED_USERS) {
+			entries.sort((a, b) => a.savedAt - b.savedAt);
+			const removeCount = entries.length - (MAX_CACHED_USERS - 1);
+			for (let i = 0; i < removeCount; i += 1) {
+				const target = entries[i];
+				if (target) localStorage.removeItem(target.key);
+			}
+		}
+	} catch {
+		// Ignore storage enumeration errors
+	}
 }
 
 /**
@@ -64,29 +96,46 @@ class MemosState {
 		if (typeof window === 'undefined' || creatorId === null) return;
 		if (feedDisplayState.hasNonDefaultSort) return;
 		if (this.hydratedForUser === creatorId) return;
+		const key = `${SNAPSHOT_PREFIX}${creatorId}`;
 		try {
-			const raw = localStorage.getItem(`${SNAPSHOT_PREFIX}${creatorId}`);
+			const raw = localStorage.getItem(key);
 			if (!raw) return;
 			const snap = JSON.parse(raw) as Partial<MemoSnapshot>;
+			if (typeof snap.savedAt === 'number' && Date.now() - snap.savedAt > SNAPSHOT_TTL_MS) {
+				localStorage.removeItem(key);
+				return;
+			}
 			if (Array.isArray(snap.items)) this.items = snap.items;
 			if (Array.isArray(snap.tags)) this.tags = snap.tags;
 			if (Array.isArray(snap.heatmap)) this.heatmap = snap.heatmap;
 			this.hydratedForUser = creatorId;
 		} catch {
-			// Ignore corrupted cache
+			localStorage.removeItem(key);
 		}
 	}
 
 	private persistSnapshot(creatorId?: number | null): void {
 		if (typeof window === 'undefined' || creatorId === null || creatorId === undefined) return;
 		if (filterState.hasActiveFilters || feedDisplayState.hasNonDefaultSort) return;
+		const key = `${SNAPSHOT_PREFIX}${creatorId}`;
 		try {
-			const snap: MemoSnapshot = {
-				items: this.items.slice(0, MAX_SNAPSHOT_ITEMS),
-				tags: this.tags,
-				heatmap: this.heatmap
-			};
-			localStorage.setItem(`${SNAPSHOT_PREFIX}${creatorId}`, JSON.stringify(snap));
+			pruneExcessUserSnapshots(key);
+			let count = MAX_SNAPSHOT_ITEMS;
+			let payload = '';
+			while (count >= 3) {
+				const snap: MemoSnapshot = {
+					savedAt: Date.now(),
+					items: this.items.slice(0, count),
+					tags: this.tags.slice(0, 60),
+					heatmap: this.heatmap.slice(-90)
+				};
+				payload = JSON.stringify(snap);
+				if (payload.length <= MAX_SNAPSHOT_BYTES) break;
+				count = Math.floor(count / 2);
+			}
+			if (payload && payload.length <= MAX_SNAPSHOT_BYTES) {
+				localStorage.setItem(key, payload);
+			}
 		} catch {
 			// Ignore storage quota errors
 		}

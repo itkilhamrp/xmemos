@@ -79,3 +79,22 @@ pub fn list_system_settings(conn: &Connection) -> AppResult<Vec<SystemSetting>> 
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
+
+pub const SETTING_MAX_UPLOAD_SIZE_MB: &str = "max-upload-size-mb";
+pub const DEFAULT_MAX_UPLOAD_SIZE_MB: u64 = 32;
+pub const MAX_ALLOWED_UPLOAD_SIZE_MB: u64 = 2048;
+
+/// Reads the persisted `max-upload-size-mb` setting from `system_setting` (default: 32 MB, 0 = unlimited).
+pub fn get_max_upload_size_mb(conn: &Connection) -> AppResult<u64> {
+    let setting = get_system_setting(conn, SETTING_MAX_UPLOAD_SIZE_MB)?;
+    match setting {
+        Some(s) => Ok(s
+            .value
+            .trim()
+            .parse::<u64>()
+            .ok()
+            .map(|v| v.min(MAX_ALLOWED_UPLOAD_SIZE_MB))
+            .unwrap_or(DEFAULT_MAX_UPLOAD_SIZE_MB)),
+        None => Ok(DEFAULT_MAX_UPLOAD_SIZE_MB),
+    }
+}

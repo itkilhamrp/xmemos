@@ -74,18 +74,28 @@
 		}
 	});
 
+	function isLocalCopyablePath(path: string): boolean {
+		if (!path || path.startsWith('content://')) return false;
+		return path.includes('/backups/') || path.includes('\\backups\\');
+	}
+
 	async function handleExportDb(): Promise<void> {
 		busy = true;
+		let stagedPath: string | null = null;
+		let finalized = false;
 		try {
 			const res = await backupApi.exportDb(effectiveScope);
+			stagedPath = res.path;
 			const saved = await backupApi.saveToSaf(res.path, res.filename, 'application/x-sqlite3');
 			const scopeLabel = res.scope === 'ALL_USERS' ? 'All Users' : `@${activeUsername}`;
 			if (saved.cancelled) {
-				toastState.show(
-					`Snapshot kept in local backups: ${res.filename} (${formatBytes(res.sizeBytes)})`,
-					'info'
-				);
+				await backupApi.finalizeExport(res.path, null, null);
+				finalized = true;
+				toastState.show(i18n.t('backup.exportCancelled'), 'info');
 			} else {
+				const savedDest = saved.savedUri ?? res.filename;
+				await backupApi.finalizeExport(res.path, savedDest, res);
+				finalized = true;
 				const targetName = saved.savedUri
 					? formatSavedLabel(saved.savedUri, res.filename)
 					: res.filename;
@@ -93,27 +103,35 @@
 					`Saved ${scopeLabel} DB: ${targetName} (${formatBytes(res.sizeBytes)})`,
 					'success'
 				);
+				onChanged?.();
 			}
-			onChanged?.();
 		} catch (err) {
 			toastState.show(err instanceof Error ? err.message : String(err), 'error');
 		} finally {
+			if (stagedPath && !finalized) {
+				await backupApi.finalizeExport(stagedPath, null, null).catch(() => {});
+			}
 			busy = false;
 		}
 	}
 
 	async function handleExportFull(): Promise<void> {
 		busy = true;
+		let stagedPath: string | null = null;
+		let finalized = false;
 		try {
 			const res = await backupApi.exportFull(effectiveScope);
+			stagedPath = res.path;
 			const saved = await backupApi.saveToSaf(res.path, res.filename, 'application/zip');
 			const scopeLabel = res.scope === 'ALL_USERS' ? 'All Users' : `@${activeUsername}`;
 			if (saved.cancelled) {
-				toastState.show(
-					`Snapshot kept in local backups: ${res.filename} (${formatBytes(res.sizeBytes)})`,
-					'info'
-				);
+				await backupApi.finalizeExport(res.path, null, null);
+				finalized = true;
+				toastState.show(i18n.t('backup.exportCancelled'), 'info');
 			} else {
+				const savedDest = saved.savedUri ?? res.filename;
+				await backupApi.finalizeExport(res.path, savedDest, res);
+				finalized = true;
 				const targetName = saved.savedUri
 					? formatSavedLabel(saved.savedUri, res.filename)
 					: res.filename;
@@ -121,11 +139,14 @@
 					`Saved ${scopeLabel} Bundle: ${targetName} (${res.mediaCount} assets, ${formatBytes(res.sizeBytes)})`,
 					'success'
 				);
+				onChanged?.();
 			}
-			onChanged?.();
 		} catch (err) {
 			toastState.show(err instanceof Error ? err.message : String(err), 'error');
 		} finally {
+			if (stagedPath && !finalized) {
+				await backupApi.finalizeExport(stagedPath, null, null).catch(() => {});
+			}
 			busy = false;
 		}
 	}
@@ -332,16 +353,18 @@
 						footer={`SHA-256: ${entry.sha256.slice(0, 16)}…`}
 					>
 						{#snippet after()}
-							<button
-								type="button"
-								aria-label="Save {entry.filename}"
-								title="Save {entry.filename}"
-								disabled={busy}
-								class="flex h-8 w-8 items-center justify-center rounded-full xm-text-accent transition-colors hover:bg-[var(--xm-accent-soft)] disabled:opacity-50"
-								onclick={() => handleDownloadHistoryEntry(entry)}
-							>
-								<Download class="h-4 w-4" aria-hidden="true" />
-							</button>
+							{#if isLocalCopyablePath(entry.path)}
+								<button
+									type="button"
+									aria-label="Save {entry.filename}"
+									title="Save {entry.filename}"
+									disabled={busy}
+									class="flex h-8 w-8 items-center justify-center rounded-full xm-text-accent transition-colors hover:bg-[var(--xm-accent-soft)] disabled:opacity-50"
+									onclick={() => handleDownloadHistoryEntry(entry)}
+								>
+									<Download class="h-4 w-4" aria-hidden="true" />
+								</button>
+							{/if}
 						{/snippet}
 					</ListItem>
 				{/each}

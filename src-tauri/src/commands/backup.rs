@@ -88,7 +88,7 @@ pub fn backup_export_db(
     scope: Option<String>,
 ) -> AppResult<ExportResult> {
     let resolved = resolve_backup_scope(&state, scope)?;
-    backup::export_database_only_scoped(&state, None, &resolved)
+    backup::export_database_only_staged(&state, &resolved)
 }
 
 #[tauri::command]
@@ -97,7 +97,23 @@ pub fn backup_export_full(
     scope: Option<String>,
 ) -> AppResult<ExportResult> {
     let resolved = resolve_backup_scope(&state, scope)?;
-    backup::export_full_bundle_scoped(&state, None, &resolved)
+    backup::export_full_bundle_staged(&state, &resolved)
+}
+
+#[tauri::command]
+pub fn backup_finalize_export(
+    state: State<'_, AppState>,
+    staged_path: String,
+    saved_destination: Option<String>,
+    result: Option<ExportResult>,
+) -> AppResult<()> {
+    let _ = require_authenticated_user(&state)?;
+    backup::finalize_staged_export(
+        &state,
+        Path::new(&staged_path),
+        saved_destination.as_deref(),
+        result.as_ref(),
+    )
 }
 
 #[tauri::command]

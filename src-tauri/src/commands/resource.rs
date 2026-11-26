@@ -24,9 +24,7 @@ use std::path::PathBuf;
 
 use base64::Engine;
 use serde::Deserialize;
-#[cfg(not(desktop))]
-use tauri::Manager;
-use tauri::State;
+use tauri::{Manager, State};
 #[cfg(not(desktop))]
 use tauri_plugin_xmemos_storage::SaveToDownloadsRequest;
 use tauri_plugin_xmemos_storage::XmemosStorageExt;
@@ -34,9 +32,11 @@ use tauri_plugin_xmemos_storage::XmemosStorageExt;
 use crate::error::{AppError, AppResult};
 use crate::service::auth::require_authenticated_user;
 use crate::service::media::{self, CleanupResult, OrphanScanSummary, StorageBreakdown};
+use crate::service::video;
 use crate::state::AppState;
 use crate::store::memo;
 use crate::store::resource::{self, Resource};
+use crate::store::system_setting;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,8 +64,24 @@ pub struct SaveResourceBytesPayload {
     pub base64_data: String,
 }
 
+fn enforce_upload_size_limit(state: &AppState, size_bytes: u64, filename: &str) -> AppResult<()> {
+    let limit_mb = state.with_memos_db(system_setting::get_max_upload_size_mb)?;
+    if limit_mb == 0 {
+        return Ok(());
+    }
+    let limit_bytes = limit_mb.saturating_mul(1024 * 1024);
+    if size_bytes > limit_bytes {
+        let actual_mb = (size_bytes as f64) / (1024.0 * 1024.0);
+        return Err(AppError::Validation(format!(
+            "File '{filename}' ({actual_mb:.1} MB) exceeds the upload size limit of {limit_mb} MB."
+        )));
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub fn resource_upload_bytes(
+pub async fn resource_upload_bytes(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     payload: UploadResourceBytesPayload,
 ) -> AppResult<Resource> {
@@ -74,45 +90,103 @@ pub fn resource_upload_bytes(
         .decode(&payload.base64_data)
         .map_err(|e| AppError::Validation(format!("Invalid base64 payload: {e}")))?;
 
-    media::save_new_resource(
-        &state,
-        current.id,
-        &payload.filename,
-        &bytes,
-        payload.mime_type.as_deref(),
-        payload.memo_id,
-    )
+    enforce_upload_size_limit(&state, bytes.len() as u64, &payload.filename)?;
+
+    let app_clone = app.clone();
+    let user_id = current.id;
+    let filename = payload.filename;
+    let mime_type = payload.mime_type;
+    let memo_id = payload.memo_id;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_state = app_clone.state::<AppState>();
+        let detected_mime = media::detect_mime_type(&filename, &bytes, mime_type.as_deref());
+        let (opt_name, opt_bytes, opt_mime) = if detected_mime.starts_with("video/") {
+            video::optimize_video_upload(
+                &app_clone,
+                &app_state.temp_dir(),
+                &filename,
+                &bytes,
+                &detected_mime,
+            )
+        } else {
+            (filename, bytes, detected_mime)
+        };
+        media::save_new_resource(
+            &app_state,
+            user_id,
+            &opt_name,
+            &opt_bytes,
+            Some(&opt_mime),
+            memo_id,
+        )
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Media upload worker failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn resource_import_file(
+pub async fn resource_import_file(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     payload: ImportResourceFilePayload,
 ) -> AppResult<Resource> {
     let current = require_authenticated_user(&state)?;
-    let src = Path::new(&payload.local_path);
-    if !src.exists() || !src.is_file() {
+    let src_path = std::path::PathBuf::from(&payload.local_path);
+    if !src_path.exists() || !src_path.is_file() {
         return Err(AppError::NotFound(format!(
             "Picked file does not exist: {}",
             payload.local_path
         )));
     }
-    let bytes = fs::read(src)?;
-    let res = media::save_new_resource(
-        &state,
-        current.id,
-        &payload.filename,
-        &bytes,
-        payload.mime_type.as_deref(),
-        payload.memo_id,
-    )?;
 
-    // Clean up ephemeral temp file if it was staged in temp/
-    if src.starts_with(state.temp_dir()) {
-        let _ = fs::remove_file(src);
+    let file_size = fs::metadata(&src_path)?.len();
+    if let Err(err) = enforce_upload_size_limit(&state, file_size, &payload.filename) {
+        if src_path.starts_with(state.temp_dir()) {
+            let _ = fs::remove_file(&src_path);
+        }
+        return Err(err);
     }
 
-    Ok(res)
+    let app_clone = app.clone();
+    let user_id = current.id;
+    let filename = payload.filename;
+    let mime_type = payload.mime_type;
+    let memo_id = payload.memo_id;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_state = app_clone.state::<AppState>();
+        let bytes = fs::read(&src_path)?;
+        let detected_mime = media::detect_mime_type(&filename, &bytes, mime_type.as_deref());
+        let (opt_name, opt_bytes, opt_mime) = if detected_mime.starts_with("video/") {
+            video::optimize_video_upload(
+                &app_clone,
+                &app_state.temp_dir(),
+                &filename,
+                &bytes,
+                &detected_mime,
+            )
+        } else {
+            (filename, bytes, detected_mime)
+        };
+        let res = media::save_new_resource(
+            &app_state,
+            user_id,
+            &opt_name,
+            &opt_bytes,
+            Some(&opt_mime),
+            memo_id,
+        )?;
+
+        // Clean up ephemeral temp file if it was staged in temp/
+        if src_path.starts_with(app_state.temp_dir()) {
+            let _ = fs::remove_file(&src_path);
+        }
+
+        Ok(res)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Media import worker failed: {e}")))?
 }
 
 #[tauri::command]

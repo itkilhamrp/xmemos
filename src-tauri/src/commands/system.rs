@@ -26,7 +26,7 @@ use crate::error::{AppError, AppResult};
 use crate::service::window_pin;
 use crate::service::window_pin::AlwaysOnTopResult;
 use crate::service::auth::{
-    require_authenticated_user, require_host, PREF_REQUIRE_PASSWORD_AFTER_SIGN_OUT,
+    require_admin_or_host, require_authenticated_user, PREF_REQUIRE_PASSWORD_AFTER_SIGN_OUT,
 };
 use crate::state::AppState;
 use crate::store::db::memos_schema::MEMOS_COMPATIBLE_SCHEMA_VERSION;
@@ -84,12 +84,30 @@ pub fn system_upsert_setting(
     value: String,
     description: Option<String>,
 ) -> AppResult<SystemSetting> {
-    let _ = require_host(&state)?;
+    let _ = require_admin_or_host(&state)?;
+    let trimmed_name = name.trim();
+    let trimmed_value = value.trim();
+
+    if trimmed_name == system_setting::SETTING_MAX_UPLOAD_SIZE_MB {
+        let parsed = trimmed_value.parse::<u64>().map_err(|_| {
+            AppError::Validation(
+                "Upload size limit must be a non-negative whole number in MB (0 for unlimited)."
+                    .to_string(),
+            )
+        })?;
+        if parsed > system_setting::MAX_ALLOWED_UPLOAD_SIZE_MB {
+            return Err(AppError::Validation(format!(
+                "Upload size limit cannot exceed {} MB.",
+                system_setting::MAX_ALLOWED_UPLOAD_SIZE_MB
+            )));
+        }
+    }
+
     state.with_memos_db(|conn| {
         system_setting::upsert_system_setting(
             conn,
-            &name,
-            &value,
+            trimmed_name,
+            trimmed_value,
             description.as_deref().unwrap_or(""),
         )
     })

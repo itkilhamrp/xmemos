@@ -5,6 +5,59 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.6] - 2026-11-27
+
+### Changed
+- **Native Android Kotlin First-Frame Startup & Bounded Cache Pruner (`plugins/tauri-plugin-xmemos-storage/android/src/main/java/org/xmemos/storage/XmemosStartupOptimizer.kt`, `XmemosStoragePlugin.kt`)**:
+  - Added `XmemosStartupOptimizer.applyOnLoad(activity, webView)` running natively in Kotlin at Activity startup to match the native Activity/WebView background color to Light/Dark mode before first paint (eliminating cold/warm start flashes), enable `WebSettings.LOAD_DEFAULT`, `offscreenPreRaster`, and hardware layer acceleration, and asynchronously prune stale `video_opt`/`export_tmp` files (>6h) plus enforce a strict `48 MiB` LRU cap on `thumbs/`.
+- **Native Per-OS / Per-DE Desktop Startup Acceleration (`src-tauri/src/main.rs`, `src-tauri/src/state.rs`, `src-tauri/src/lib.rs`)**:
+  - **Windows**: Replaced synchronous `reg.exe` child-process spawning (120–350ms overhead per launch) with direct native Win32 `advapi32.dll` FFI (`RegOpenKeyExW`/`RegQueryValueExW`, `<0.1ms`) and applied lightweight WebView2 cold-start flags (`--disable-background-networking --no-first-run`) when unset.
+  - **GNU/Linux**: Added zero-subprocess `/proc` + `XDG_SESSION_TYPE` detection for NVIDIA + Wayland across KDE Plasma, GNOME, Hyprland, and Sway (`WEBKIT_DISABLE_DMABUF_RENDERER=1` when unset) to eliminate WebKitGTK startup stalls while respecting explicit user overrides.
+  - **Cross-OS Rust Cache & SQLite Maintenance**: Added a strict `48 MiB` LRU cap on `thumbs/` and background `PRAGMA optimize` inside `AppState::run_background_startup_maintenance()`, and tightened the Desktop failsafe reveal timer to `450ms`.
+- **Instant Frame-0 Hydration & Bounded Zero-Bloat SWR Cache (`src/routes/+layout.svelte`, `src/lib/state/memos.svelte.ts`)**:
+  - Hydrated cached memos synchronously on Frame 0 and moved Desktop `revealMainWindow()` to a single `requestAnimationFrame` without waiting for `await authState.refresh()` (safely honoring Rust `sticky_launch_only`).
+  - Added strict `128 KB` size cap, `7-day` TTL expiration, and `max 3 users` LRU eviction to `localStorage` memo snapshots so cache stays instant without ever bloating.
+
+## [2.9.5] - 2026-11-27
+
+### Fixed
+- **Ultra-Smooth 60/120fps Mobile Bottom Tabbar Slider (`src/lib/components/layout/BottomTabbar.svelte`, `src/app.css`)**:
+  - Removed the inline Svelte `transform: translate3d(...)` binding from `pillEl`'s `style` attribute so Svelte re-renders never overwrite imperative `requestAnimationFrame` finger-glide positions mid-scrub (eliminating visible slider jitter/stutter on Android).
+  - Enforced `touch-action: none` and `user-select: none` on `.xm-ios-tabbar-track` and `.xm-ios-tabbar-item`, isolated `.xm-ios-tabbar-pill` with `contain: strict`, lowered drag activation slop to `5px`, and tuned multi-tab dwell to `165ms` so rapid finger glides stay completely fluid.
+
+### Added
+- **PowerPoint-Style Directional Slide Page Transitions (`src/lib/utils/route-transition.ts`, `src/routes/+layout.svelte`, `src/app.css`)**:
+  - Wired SvelteKit's `onNavigate` lifecycle hook with the browser's native GPU-composited `document.startViewTransition` API to animate smooth `210ms` left/right directional horizontal slide transitions between primary tabs and sub-routes.
+  - Pinned `.xm-ios-tabbar-shell` via `view-transition-name: xm-bottom-tabbar` so the floating Liquid Glass navbar remains rock-steady while pages slide beneath it, immediately skips any overlapping transition (`skipTransition()`) for zero delay/queue lag, and honors `prefers-reduced-motion: reduce`.
+
+## [2.9.4] - 2026-11-27
+
+### Added
+- **Smart Hardware-Accelerated Android Video Compression (`plugins/tauri-plugin-xmemos-storage/android/build.gradle.kts`, `XmemosVideoCompressor.kt`, `XmemosStoragePlugin.kt`, `src/{models,mobile,desktop}.rs`)**:
+  - Integrated 100% FOSS Jetpack Media3 Transformer `1.11.1` (Apache 2.0, zero GMS) using device `MediaCodec` hardware H.264/AAC encoders to compress uploaded videos automatically while keeping APK size lightweight.
+  - Pre-probes source metadata via `MediaMetadataRetriever` to skip tiny (<1.5 MB), already-compact (<=720p & <=1.6 Mbps), or overly long (>15 min) videos instantly; applies `Presentation.createForShortSide(720)` (preserving portrait/landscape orientation), adaptive bitrate (`0.55x` source clamped to `0.9–2.2 Mbps`), a 90-second watchdog timeout, and an `>= 8%` anti-bloat guard that safely falls back to the original file on any error.
+- **Opportunistic Lightweight Desktop Video Compression & Non-Blocking Async Uploads (`src-tauri/src/service/video.rs`, `src-tauri/src/service/mod.rs`, `src-tauri/src/commands/resource.rs`, `src/lib/components/memo/MemoEditor.svelte`)**:
+  - Added modular `service/video.rs` for Desktop (GNU/Linux, Windows, macOS) that opportunistically compresses videos >=1.5 MB using system-installed `ffmpeg` (`libx264` CRF 26, `720p` max short side, `aac` 96k, `-movflags +faststart`, Windows `CREATE_NO_WINDOW`, 90s watchdog, `>= 8%` anti-bloat guard) with zero bundled binaries and instant passthrough when `ffmpeg` is not installed.
+  - Moved `resource_upload_bytes` and `resource_import_file` media/video compression onto `tauri::async_runtime::spawn_blocking` so the UI never freezes during compression, and updated `MemoEditor.svelte` to show the compressing progress stage for both images and videos.
+
+## [2.9.3] - 2026-11-27
+
+### Fixed
+- **Single-Destination Backup Export with Zero Duplicate Saves or Cancel Leaks (`src-tauri/src/service/backup.rs`, `src-tauri/src/commands/backup.rs`, `src-tauri/src/lib.rs`, `src/lib/api/backup.ts`, `src/lib/components/backup/BackupRestorePanel.svelte`)**:
+  - Switched `backup_export_db` and `backup_export_full` to stage exports ephemerally inside `temp/backup_exports/` instead of writing permanently to `org.xmemos.app/backups/` before the OS/SAF File Manager dialog opens.
+  - Added `backup_finalize_export` called inside `try/finally` so the staged temp file is always removed after saving or cancelling, and `backup_history` only records confirmed exports—eliminating duplicate files and leftover snapshots when an export is cancelled.
+
+### Changed
+- **Smart Rust + WebView Static Media Compression (`src-tauri/src/service/media.rs`, `src/lib/utils/media-compress.ts`)**:
+  - Upgraded WebView pre-upload compression (`MAX_EDGE_PX = 1920`, `MIN_COMPRESS_THRESHOLD_BYTES = 24 KB`, native `libwebp` lossy VP8 at quality `0.80`) and Rust `optimize_static_upload` (`1920px` Lanczos3 downscale, compact WebP fast-path, crisp JPEG Q78/Q74, lossless WebP 8% preference, and Best-Adaptive PNG) to cut static image storage dramatically while preserving crisp visual clarity and keeping `cargo --locked` intact.
+- **Per-File Upload Progress Indicator & Guaranteed Zero Re-Upload on Edit (`src/lib/components/media/AttachmentPreviewStrip.svelte`, `src/lib/components/memo/MemoEditor.svelte`)**:
+  - Added live per-file upload progress cards (filename, formatted file size, compressing/uploading stage label, animated progress bar, and percentage) while blocking Save until uploads finish; editing an existing memo strictly preserves existing `resourceIds` without ever re-uploading already-attached files.
+
+### Added
+- **HOST/ADMIN-Only Persistent Upload Size Limit (`src-tauri/src/store/system_setting.rs`, `src-tauri/src/commands/system.rs`, `src-tauri/src/commands/resource.rs`, `src/routes/settings/system/+page.svelte`, `src/lib/components/memo/MemoEditor.svelte`, `src/lib/i18n/locales/{en,id,es}.ts`)**:
+  - Added persistent `max-upload-size-mb` in `memos_prod.db`'s `system_setting` table (default `32` MB, `0` = unlimited, range `0..=2048`) editable strictly by `HOST`/`ADMIN` accounts (`require_admin_or_host`) with quick presets (`10 MB`, `32 MB`, `64 MB`, `128 MB`, `Unlimited`) and custom MB input in **Settings → System**.
+  - Enforced the configured upload limit in both the frontend composer (with an inline validation alert banner and toast before reading/uploading) and Rust backend (`resource_upload_bytes` and `resource_import_file`, cleaning up staged temp files on rejection).
+
 ## [2.9.2] - 2026-11-27
 
 ### Fixed

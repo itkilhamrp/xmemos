@@ -17,9 +17,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-const MAX_EDGE_PX = 2048;
-const WEBP_QUALITY = 0.86;
-const MIN_COMPRESS_THRESHOLD_BYTES = 128 * 1024;
+const MAX_EDGE_PX = 1920;
+const WEBP_QUALITY = 0.80;
+const MIN_COMPRESS_THRESHOLD_BYTES = 24 * 1024;
 
 export interface PreparedUpload {
 	filename: string;

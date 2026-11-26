@@ -164,6 +164,9 @@ export const es: Record<TranslationKey, string> = {
 	'editor.emptyError': 'Escribe una nota o adjunta al menos un archivo',
 	'editor.attachedFiles': 'Archivos adjuntos ({count})',
 	'editor.uploading': 'Subiendo {count}...',
+	'editor.compressingFile': 'Comprimiendo multimedia…',
+	'editor.uploadingFile': 'Subiendo archivo estático…',
+	'editor.uploadSizeExceeded': 'El archivo "{filename}" ({size} MB) supera el límite de carga de {limit} MB.',
 	'editor.timestampAuto': 'Ahora (Automático)',
 	'editor.setCustomTime': 'Definir fecha y hora',
 	'editor.resetToNow': 'Restablecer a ahora',
@@ -448,6 +451,15 @@ export const es: Record<TranslationKey, string> = {
 	'system.disallowRegTitle': 'Desactivar registro libre',
 	'system.disallowRegSub': 'Solo HOST/ADMIN puede crear cuentas locales adicionales',
 	'system.updated': 'Ajuste del sistema actualizado',
+	'system.adminOnlyNote': 'La configuración del sistema solo puede ser modificada por cuentas HOST o ADMIN.',
+	'system.uploadPolicy': 'Límite de carga de archivos estáticos',
+	'system.uploadLimitTitle': 'Tamaño máximo de carga (MB)',
+	'system.uploadLimitDesc': 'Controla el tamaño máximo permitido para imágenes, videos, audio y archivos adjuntos. Usa 0 para ilimitado. Solo editable por HOST / ADMIN.',
+	'system.uploadUnlimited': 'Ilimitado',
+	'system.uploadLimitHint': 'Ingresa un número entero entre 0 (ilimitado) y 2048 MB.',
+	'system.uploadLimitInvalid': 'Ingresa un número entero válido entre 0 y 2048 MB.',
+	'system.uploadLimitSaved': 'Límite de carga establecido en {mb} MB',
+	'system.uploadLimitSavedUnlimited': 'Límite de carga establecido en Ilimitado',
 
 	// Storage & Backup
 	'storage.title': 'Almacenamiento y copias',
@@ -492,6 +504,7 @@ export const es: Record<TranslationKey, string> = {
 	'backup.recent': 'Copias recientes',
 	'backup.confirmRestoreTitle': 'Confirmar restauración atómica',
 	'backup.restored': 'Restauradas {memos} notas y {files} archivos',
+	'backup.exportCancelled': 'Exportación cancelada — no se guardó ningún archivo duplicado.',
 
 	// About & Error
 	'about.tagline': 'Captura de conocimiento y microblogging 100% sin conexión y privado',

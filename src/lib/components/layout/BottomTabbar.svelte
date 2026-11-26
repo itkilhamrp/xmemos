@@ -136,7 +136,7 @@
 					if (dragging && hoverIndex === candidate && candidate !== lastNavigatedIndex) {
 						navigateToIndex(candidate, true);
 					}
-				}, 95);
+				}, 165);
 			}
 		}
 	}
@@ -153,7 +153,7 @@
 	function handlePointerMove(event: PointerEvent): void {
 		if (pointerId !== event.pointerId || !trackEl) return;
 		const delta = Math.abs(event.clientX - startX);
-		if (!dragging && delta > 6) {
+		if (!dragging && delta > 5) {
 			dragging = true;
 			didScrub = true;
 			hoverIndex = settledIndex;
@@ -248,7 +248,7 @@
 				bind:this={pillEl}
 				class="xm-ios-tabbar-pill"
 				class:is-dragging={dragging}
-				style={`width: calc((100% - 8px) / ${TAB_COUNT}); transform: translate3d(${settledIndex * 100}%, 0, 0);`}
+				style={`width: calc((100% - 8px) / ${TAB_COUNT});`}
 				aria-hidden="true"
 			></div>
 

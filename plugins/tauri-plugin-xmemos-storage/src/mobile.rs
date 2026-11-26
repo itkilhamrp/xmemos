@@ -109,4 +109,10 @@ impl<R: Runtime> XmemosStorage<R> {
             .run_mobile_plugin("saveToDownloads", req)
             .map_err(Into::into)
     }
+
+    pub fn compress_video(&self, req: CompressVideoRequest) -> Result<CompressVideoResponse> {
+        self.0
+            .run_mobile_plugin("compressVideo", req)
+            .map_err(Into::into)
+    }
 }

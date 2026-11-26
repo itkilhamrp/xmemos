@@ -38,14 +38,23 @@
 	import { lightboxState } from '#lib/state/lightbox.svelte.ts';
 	import { formatBytes } from '#lib/utils/date.ts';
 
+	export interface UploadProgressItem {
+		id: string;
+		filename: string;
+		sizeBytes: number;
+		percent: number;
+		stage: 'compressing' | 'uploading';
+	}
+
 	interface Props {
 		resources: Resource[];
 		previewUrls?: ReadonlyMap<number, string>;
 		uploadingCount?: number;
+		activeUploads?: UploadProgressItem[];
 		onRemove: (resourceId: number) => void;
 	}
 
-	let { resources, previewUrls, uploadingCount = 0, onRemove }: Props = $props();
+	let { resources, previewUrls, uploadingCount = 0, activeUploads = [], onRemove }: Props = $props();
 
 
 	function isImage(mime: string): boolean {
@@ -253,7 +262,41 @@
 				{/if}
 			{/each}
 
-			{#if uploadingCount > 0}
+			{#if activeUploads.length > 0}
+				{#each activeUploads as item (item.id)}
+					<div
+						class="col-span-2 flex flex-col gap-2 rounded-2xl border border-[var(--xm-accent-border)] bg-[var(--xm-accent-soft)] p-3 sm:col-span-3"
+						role="status"
+						aria-live="polite"
+					>
+						<div class="flex items-center justify-between gap-2">
+							<div class="flex min-w-0 items-center gap-2">
+								<Preloader class="!h-4 !w-4 shrink-0" />
+								<span class="truncate text-xs font-semibold xm-text-primary">{item.filename}</span>
+							</div>
+							<span class="shrink-0 text-[11px] font-semibold xm-text-accent tabular-nums">
+								{Math.round(item.percent)}%
+							</span>
+						</div>
+						<div class="h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/15">
+							<div
+								class="h-full rounded-full bg-[var(--xm-accent)] transition-[width] duration-200 ease-out"
+								style:width={`${Math.max(8, Math.min(100, item.percent))}%`}
+							></div>
+						</div>
+						<div class="flex items-center justify-between text-[10px] xm-text-muted tabular-nums">
+							<span>
+								{item.stage === 'compressing'
+									? i18n.t('editor.compressingFile')
+									: i18n.t('editor.uploadingFile')}
+							</span>
+							{#if item.sizeBytes > 0}
+								<span>{formatBytes(item.sizeBytes)}</span>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			{:else if uploadingCount > 0}
 				<div
 					class="flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--xm-accent-border)] bg-[var(--xm-accent-soft)] p-3 text-center"
 					role="status"

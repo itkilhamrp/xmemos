@@ -147,3 +147,21 @@ pub struct CreateMemoShortcutResponse {
 pub struct PendingMemoShortcutResponse {
     pub memo_uid: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompressVideoRequest {
+    pub source_path: String,
+    pub max_short_side: Option<u32>,
+    pub target_bitrate: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompressVideoResponse {
+    pub compressed: bool,
+    pub output_path: String,
+    pub mime_type: String,
+    pub original_bytes: u64,
+    pub output_bytes: u64,
+}

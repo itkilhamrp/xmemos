@@ -352,16 +352,41 @@ pub fn export_database_only(state: &AppState, output_dir: Option<&Path>) -> AppR
     export_database_only_scoped(state, output_dir, &BackupScope::AllUsers)
 }
 
+fn staged_backup_exports_dir(state: &AppState) -> PathBuf {
+    state.temp_dir().join("backup_exports")
+}
+
 /// Mode 1 (Scoped): Database-Only Export (`.db`) for either `AllUsers` (HOST/ADMIN) or `ActiveUser`.
 pub fn export_database_only_scoped(
     state: &AppState,
     output_dir: Option<&Path>,
     scope: &BackupScope,
 ) -> AppResult<ExportResult> {
+    export_database_only_internal(state, output_dir, scope, true)
+}
+
+/// Mode 1 (Staged): Writes `.db` strictly to ephemeral `temp/backup_exports/` without touching `backups/`
+/// or recording history until the user confirms saving in the OS/SAF File Manager dialog.
+pub fn export_database_only_staged(
+    state: &AppState,
+    scope: &BackupScope,
+) -> AppResult<ExportResult> {
+    let stage_dir = staged_backup_exports_dir(state);
+    export_database_only_internal(state, Some(&stage_dir), scope, false)
+}
+
+fn export_database_only_internal(
+    state: &AppState,
+    output_dir: Option<&Path>,
+    scope: &BackupScope,
+    record_history: bool,
+) -> AppResult<ExportResult> {
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let scope_tag = scope.filename_tag();
     let filename = format!("Xmemos-{scope_tag}-db-v{}-{ts}.db", state.app_version);
-    let target_dir = output_dir.unwrap_or(&state.backups_dir()).to_path_buf();
+    let target_dir = output_dir
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| state.backups_dir());
     fs::create_dir_all(&target_dir)?;
     let dest_path = target_dir.join(&filename);
 
@@ -378,7 +403,9 @@ pub fn export_database_only_scoped(
         sha256,
         media_count: 0,
     };
-    record_backup_history(state, &result)?;
+    if record_history {
+        record_backup_history(state, &result)?;
+    }
     Ok(result)
 }
 
@@ -393,10 +420,31 @@ pub fn export_full_bundle_scoped(
     output_dir: Option<&Path>,
     scope: &BackupScope,
 ) -> AppResult<ExportResult> {
+    export_full_bundle_internal(state, output_dir, scope, true)
+}
+
+/// Mode 2 (Staged): Writes `.xmemos` strictly to ephemeral `temp/backup_exports/` without touching `backups/`
+/// or recording history until the user confirms saving in the OS/SAF File Manager dialog.
+pub fn export_full_bundle_staged(
+    state: &AppState,
+    scope: &BackupScope,
+) -> AppResult<ExportResult> {
+    let stage_dir = staged_backup_exports_dir(state);
+    export_full_bundle_internal(state, Some(&stage_dir), scope, false)
+}
+
+fn export_full_bundle_internal(
+    state: &AppState,
+    output_dir: Option<&Path>,
+    scope: &BackupScope,
+    record_history: bool,
+) -> AppResult<ExportResult> {
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let scope_tag = scope.filename_tag();
     let filename = format!("Xmemos-{scope_tag}-full-v{}-{ts}.xmemos", state.app_version);
-    let target_dir = output_dir.unwrap_or(&state.backups_dir()).to_path_buf();
+    let target_dir = output_dir
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| state.backups_dir());
     fs::create_dir_all(&target_dir)?;
     let dest_path = target_dir.join(&filename);
 
@@ -479,8 +527,40 @@ pub fn export_full_bundle_scoped(
         sha256,
         media_count: manifest.media_count,
     };
-    record_backup_history(state, &result)?;
+    if record_history {
+        record_backup_history(state, &result)?;
+    }
     Ok(result)
+}
+
+/// Cleans up an ephemeral staged backup file in `temp/backup_exports/` after the OS/SAF Save dialog completes
+/// or is cancelled. Only records an entry in `backup_history` when `saved_destination` is provided (not cancelled).
+pub fn finalize_staged_export(
+    state: &AppState,
+    staged_path: &Path,
+    saved_destination: Option<&str>,
+    result: Option<&ExportResult>,
+) -> AppResult<()> {
+    let stage_root = staged_backup_exports_dir(state);
+    if staged_path.exists() && stage_root.exists() {
+        if let (Ok(canon_root), Ok(canon_file)) =
+            (stage_root.canonicalize(), staged_path.canonicalize())
+        {
+            if canon_file.starts_with(&canon_root) && canon_file.is_file() {
+                let _ = fs::remove_file(&canon_file);
+            }
+        }
+    }
+
+    if let (Some(dest), Some(res)) = (
+        saved_destination.map(str::trim).filter(|s| !s.is_empty()),
+        result,
+    ) {
+        let mut recorded = res.clone();
+        recorded.path = dest.to_string();
+        record_backup_history(state, &recorded)?;
+    }
+    Ok(())
 }
 
 fn validate_zip_entry_path(name: &str) -> AppResult<PathBuf> {
