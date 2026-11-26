@@ -5,6 +5,13 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.35] - 2026-11-26
+
+### Fixed
+- **Desktop Touchpad Two-Finger Pinch Zooming the Entire App UI on Map (`src/lib/utils/osm-tiles.ts`, `src/lib/components/map/OsmMapCanvas.svelte`, `src/lib/components/map/LocationPreviewPopover.svelte`, `src/routes/+layout.svelte`, `src/app.html`, `src-tauri/tauri.conf.json`)**:
+  - Added `attachMapPinchZoomGuard()` in `src/lib/utils/osm-tiles.ts` (wired into both `OsmMapCanvas` and `LocationPreviewPopover` with `zoomSnap: 0.25`) to intercept non-passive `wheel` (`ctrlKey: true`) and WebKit `gesturestart`/`gesturechange`/`gestureend` touchpad pinch events, routing pinch gestures exclusively to Leaflet cursor-anchored zoom without zooming the app WebView.
+  - Added an app-wide non-passive `wheel` (`ctrlKey`) + `gesture*` pinch-zoom guard in `src/routes/+layout.svelte`, locked viewport scaling in `src/app.html`, and explicitly set `"zoomHotkeysEnabled": false` in `src-tauri/tauri.conf.json` so Desktop WebViews (GNU/Linux WebKitGTK, Windows WebView2, macOS WKWebView) never accidentally page-zoom the UI.
+
 ## [2.7.34] - 2026-11-26
 
 ### Changed & Improved

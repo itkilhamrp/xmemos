@@ -27,7 +27,7 @@
 	import { i18n } from '#lib/i18n/index.svelte.ts';
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import type { MemoLocation, MemoView } from '#lib/types/memo.ts';
-	import { createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
+	import { attachMapPinchZoomGuard, createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
 
 	export interface MapCluster {
 		id: string;
@@ -67,6 +67,7 @@
 	let zoomLevel = $state(2);
 	let hasFittedInitial = false;
 	let resizeObserver: ResizeObserver | null = null;
+	let detachPinchGuard: (() => void) | null = null;
 	let destroyed = false;
 	const invalidateTimers: ReturnType<typeof setTimeout>[] = [];
 
@@ -221,6 +222,9 @@
 				zoom: initialZoom,
 				minZoom: 2,
 				maxZoom: 18,
+				zoomSnap: 0.25,
+				zoomDelta: 1,
+				wheelPxPerZoomLevel: 90,
 				zoomControl: false,
 				attributionControl: true,
 				worldCopyJump: true
@@ -237,6 +241,7 @@
 
 			markerLayer = leaflet.layerGroup().addTo(mapInst);
 			droppedLayer = leaflet.layerGroup().addTo(mapInst);
+			detachPinchGuard = attachMapPinchZoomGuard(mapEl, mapInst);
 			L = leaflet;
 			map = mapInst;
 
@@ -279,6 +284,8 @@
 			clearTimeout(timer);
 		}
 		invalidateTimers.length = 0;
+		detachPinchGuard?.();
+		detachPinchGuard = null;
 		resizeObserver?.disconnect();
 		resizeObserver = null;
 		map?.remove();

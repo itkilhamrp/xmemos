@@ -31,13 +31,14 @@
 	import { locationPreviewState } from '#lib/state/location-preview.svelte.ts';
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import { formatCoordinates } from '#lib/utils/geocode.ts';
-	import { createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
+	import { attachMapPinchZoomGuard, createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
 
 	let popoverEl = $state<HTMLDivElement | null>(null);
 	let mapEl = $state<HTMLDivElement | null>(null);
 	let map: LeafletNS.Map | null = null;
 	let mapSeq = 0;
 	let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
+	let detachPinchGuard: (() => void) | null = null;
 
 	let active = $derived(locationPreviewState.active);
 
@@ -69,6 +70,8 @@
 			clearTimeout(invalidateTimer);
 			invalidateTimer = null;
 		}
+		detachPinchGuard?.();
+		detachPinchGuard = null;
 		if (map) {
 			map.remove();
 			map = null;
@@ -89,6 +92,9 @@
 			zoom: 12,
 			minZoom: 2,
 			maxZoom: 18,
+			zoomSnap: 0.25,
+			zoomDelta: 1,
+			wheelPxPerZoomLevel: 90,
 			zoomControl: false,
 			attributionControl: true
 		});
@@ -110,6 +116,7 @@
 		});
 		leaflet.marker([lat, lng], { icon: pinIcon }).addTo(mapInst);
 
+		detachPinchGuard = attachMapPinchZoomGuard(mapEl, mapInst);
 		map = mapInst;
 		invalidateTimer = setTimeout(() => {
 			if (map === mapInst) mapInst.invalidateSize({ animate: false });

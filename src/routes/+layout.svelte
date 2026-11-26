@@ -93,6 +93,20 @@
 		};
 		document.addEventListener('visibilitychange', handleVisibilityResume);
 
+		// Prevent desktop touchpad 2-finger pinch gestures from zooming the entire WebView app UI
+		const blockAppPinchWheel = (ev: WheelEvent) => {
+			if (ev.ctrlKey) {
+				ev.preventDefault();
+			}
+		};
+		const blockAppGesture = (ev: Event) => {
+			ev.preventDefault();
+		};
+		window.addEventListener('wheel', blockAppPinchWheel, { passive: false });
+		document.addEventListener('gesturestart', blockAppGesture, { passive: false });
+		document.addEventListener('gesturechange', blockAppGesture, { passive: false });
+		document.addEventListener('gestureend', blockAppGesture, { passive: false });
+
 		void (async () => {
 			await authState.refresh();
 			if (!authState.hasHost && page.url.pathname !== '/auth') {
@@ -148,6 +162,10 @@
 
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityResume);
+			window.removeEventListener('wheel', blockAppPinchWheel);
+			document.removeEventListener('gesturestart', blockAppGesture);
+			document.removeEventListener('gesturechange', blockAppGesture);
+			document.removeEventListener('gestureend', blockAppGesture);
 			stopKeyboardSync();
 			unlistenShortcut?.();
 			unlistenMainOpen?.();

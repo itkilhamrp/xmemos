@@ -158,3 +158,71 @@ export function createOfflineOsmTileLayer(
 		attribution
 	});
 }
+
+interface WebKitGestureEvent extends Event {
+	scale?: number;
+}
+
+/**
+ * Intercepts Desktop touchpad 2-finger pinch-to-zoom events (`wheel` with `ctrlKey: true` on
+ * WebView2/Chromium/WebKitGTK, and `gesturestart`/`gesturechange`/`gestureend` on macOS WKWebView
+ * and WebKitGTK) so pinching on the map smoothly zooms ONLY the Leaflet map and never zooms
+ * the surrounding Xmemos desktop application UI.
+ */
+export function attachMapPinchZoomGuard(
+	container: HTMLElement,
+	mapInst: LeafletNS.Map
+): () => void {
+	let gestureBaseZoom = mapInst.getZoom();
+
+	const clampZoom = (z: number): number => {
+		const minZ = mapInst.getMinZoom();
+		const maxZ = mapInst.getMaxZoom();
+		return Math.min(maxZ, Math.max(minZ, z));
+	};
+
+	const onWheel = (event: WheelEvent) => {
+		if (!event.ctrlKey) return;
+		event.preventDefault();
+		event.stopPropagation();
+
+		// Normalize touchpad pinch deltaY into smooth Leaflet zoom steps anchored at cursor
+		const delta = -event.deltaY * 0.012;
+		if (!Number.isFinite(delta) || delta === 0) return;
+		const nextZoom = clampZoom(mapInst.getZoom() + delta);
+		const anchor = mapInst.mouseEventToLatLng(event);
+		mapInst.setZoomAround(anchor, nextZoom, { animate: false });
+	};
+
+	const onGestureStart = (event: Event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		gestureBaseZoom = mapInst.getZoom();
+	};
+
+	const onGestureChange = (event: Event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		const scale = (event as WebKitGestureEvent).scale;
+		if (typeof scale !== 'number' || !Number.isFinite(scale) || scale <= 0) return;
+		const nextZoom = clampZoom(gestureBaseZoom + Math.log2(scale));
+		mapInst.setZoom(nextZoom, { animate: false });
+	};
+
+	const onGestureEnd = (event: Event) => {
+		event.preventDefault();
+		event.stopPropagation();
+	};
+
+	container.addEventListener('wheel', onWheel, { passive: false, capture: true });
+	container.addEventListener('gesturestart', onGestureStart, { passive: false });
+	container.addEventListener('gesturechange', onGestureChange, { passive: false });
+	container.addEventListener('gestureend', onGestureEnd, { passive: false });
+
+	return () => {
+		container.removeEventListener('wheel', onWheel, { capture: true });
+		container.removeEventListener('gesturestart', onGestureStart);
+		container.removeEventListener('gesturechange', onGestureChange);
+		container.removeEventListener('gestureend', onGestureEnd);
+	};
+}
