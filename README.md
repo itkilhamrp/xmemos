@@ -1,6 +1,27 @@
 # Xmemos
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![FOSS: 100% GMS-Free](https://img.shields.io/badge/GMS--Free-100%25_FOSS-1976D2?logo=fdroid&logoColor=white)](docs/FDROID.md)
+[![Offline-First](https://img.shields.io/badge/Offline--First-100%25_Local-047857)](docs/ARCHITECTURE.md)
+[![Reproducible Builds](https://img.shields.io/badge/Reproducible_Builds-SLSA_Provenance-0A84FF?logo=githubactions&logoColor=white)](docs/REPRODUCIBLE_BUILDS.md)
+
+[![Android](https://img.shields.io/badge/Android-API_24%E2%80%9336-3DDC84?logo=android&logoColor=white)](#supported-offline-release-packages)
+[![GNU/Linux](https://img.shields.io/badge/GNU%2FLinux-AppImage_%7C_Flatpak-FCC624?logo=linux&logoColor=black)](#supported-offline-release-packages)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11_x64-0078D4?logo=windows&logoColor=white)](#supported-offline-release-packages)
+[![macOS](https://img.shields.io/badge/macOS-12%2B_arm64_%7C_x64-000000?logo=apple&logoColor=white)](#supported-offline-release-packages)
+
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-1.100-DEA584?logo=rust&logoColor=white)](src-tauri/Cargo.toml)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Android_Bridge-7F52FF?logo=kotlin&logoColor=white)](plugins/tauri-plugin-xmemos-storage/android)
+[![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_%2B_FTS5-003B57?logo=sqlite&logoColor=white)](docs/DATABASE_COMPATIBILITY.md)
+[![Svelte 5](https://img.shields.io/badge/Svelte-5_Runes-FF3E00?logo=svelte&logoColor=white)](package.json)
+[![SvelteKit 3](https://img.shields.io/badge/SvelteKit-3-FF3E00?logo=svelte&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](src/app.css)
+[![Konsta UI v5](https://img.shields.io/badge/Konsta_UI-v5_iOS_Liquid_Glass-007AFF?logo=apple&logoColor=white)](https://konstaui.com/)
+[![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](vite.config.ts)
+[![Leaflet + OSM](https://img.shields.io/badge/Leaflet-Offline_Vector_%2B_OSM-199900?logo=leaflet&logoColor=white)](src/lib/components/map/OsmMapCanvas.svelte)
+[![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)](package.json)
 
 **Xmemos** is a privacy-first, 100% offline-first multi-platform (**Android**, **GNU/Linux**, **Windows 10/11**, and **macOS**) microblogging and knowledge-capture application built with **Tauri v2**, **Rust**, **SQLite (WAL mode)**, **SvelteKit 3 + Svelte 5**, and **Konsta UI v5 (`theme="ios"`) with Liquid Glass aesthetics**.
 
