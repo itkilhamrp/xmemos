@@ -43,7 +43,7 @@
 	import { stripMarkdownToPlainText } from '#lib/utils/markdown.ts';
 	import { renderMemoShareCardPng } from '#lib/utils/share-card.ts';
 	import { saveBlobWithNativeDialog } from '#lib/utils/download.ts';
-	import { buildMemoShortcutMeta, shortcutApi } from '#lib/api/shortcut.ts';
+	import { buildMemoShortcutMeta, loadStickyPrefs, shortcutApi } from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
 
 	const DESKTOP_MENU_WIDTH = 216;
@@ -129,11 +129,13 @@
 		const desktop = isDesktopTauri();
 		try {
 			const { title, preview } = buildMemoShortcutMeta(req.view.memo.content);
+			const stickyPrefs = loadStickyPrefs(req.view.memo.uid);
 			const res = await shortcutApi.createMemoShortcut({
 				memoUid: req.view.memo.uid,
 				title,
 				preview,
-				pinned: req.view.memo.pinned
+				pinned: req.view.memo.pinned,
+				color: stickyPrefs.color
 			});
 			if (res.created) {
 				toastState.show(

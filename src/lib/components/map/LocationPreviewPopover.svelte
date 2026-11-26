@@ -20,7 +20,7 @@
 -->
 
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { shortcutApi } from '#lib/api/shortcut.ts';
@@ -31,13 +31,13 @@
 	import { locationPreviewState } from '#lib/state/location-preview.svelte.ts';
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import { formatCoordinates } from '#lib/utils/geocode.ts';
-
-	const TILE_CACHE_NAME = 'xmemos-osm-tiles-v1';
+	import { createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
 
 	let popoverEl = $state<HTMLDivElement | null>(null);
 	let mapEl = $state<HTMLDivElement | null>(null);
 	let map: LeafletNS.Map | null = null;
 	let mapSeq = 0;
+	let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
 
 	let active = $derived(locationPreviewState.active);
 
@@ -63,14 +63,12 @@
 		return `left:${Math.round(left)}px;top:${Math.round(top)}px;width:${Math.round(popWidth)}px;`;
 	});
 
-	function createOfflineFallbackDataUrl(isDark: boolean): string {
-		const bg = isDark ? '%231b1f27' : '%23e8eef5';
-		const grid = isDark ? '%232a3140' : '%23cfd9e5';
-		return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="${bg}"/><path d="M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256" stroke="${grid}" stroke-width="1"/></svg>`;
-	}
-
 	function destroyMap(): void {
 		mapSeq += 1;
+		if (invalidateTimer) {
+			clearTimeout(invalidateTimer);
+			invalidateTimer = null;
+		}
 		if (map) {
 			map.remove();
 			map = null;
@@ -83,8 +81,7 @@
 		await tick();
 		if (!mapEl || seq !== mapSeq) return;
 
-		await import('leaflet/dist/leaflet.css');
-		const leaflet = await import('leaflet');
+		const leaflet = await loadLeaflet();
 		if (!mapEl || seq !== mapSeq) return;
 
 		const mapInst = leaflet.map(mapEl, {
@@ -96,79 +93,13 @@
 			attributionControl: true
 		});
 
-		const OfflineOsmTileLayer = leaflet.TileLayer.extend({
-			createTile(coords: LeafletNS.Coords, done: LeafletNS.DoneCallback) {
-				const img = document.createElement('img');
-				img.alt = '';
-				img.setAttribute('role', 'presentation');
-				const url = (this as unknown as LeafletNS.TileLayer).getTileUrl(coords);
-				const fallback = createOfflineFallbackDataUrl(themeState.isDark);
-
-				const finishFallback = () => {
-					img.src = fallback;
-					done(undefined, img);
-				};
-
-				if (typeof caches !== 'undefined') {
-					void caches
-						.open(TILE_CACHE_NAME)
-						.then(async (cache) => {
-							const cached = await cache.match(url);
-							if (cached) {
-								const blob = await cached.blob();
-								const objUrl = URL.createObjectURL(blob);
-								img.onload = () => {
-									URL.revokeObjectURL(objUrl);
-									done(undefined, img);
-								};
-								img.onerror = () => {
-									URL.revokeObjectURL(objUrl);
-									finishFallback();
-								};
-								img.src = objUrl;
-								return;
-							}
-							try {
-								const resp = await fetch(url, { mode: 'cors' });
-								if (!resp.ok) {
-									finishFallback();
-									return;
-								}
-								void cache.put(url, resp.clone()).catch(() => {});
-								const blob = await resp.blob();
-								const objUrl = URL.createObjectURL(blob);
-								img.onload = () => {
-									URL.revokeObjectURL(objUrl);
-									done(undefined, img);
-								};
-								img.onerror = () => {
-									URL.revokeObjectURL(objUrl);
-									finishFallback();
-								};
-								img.src = objUrl;
-							} catch {
-								finishFallback();
-							}
-						})
-						.catch(finishFallback);
-				} else {
-					img.onload = () => done(undefined, img);
-					img.onerror = finishFallback;
-					img.src = url;
-				}
-				return img;
-			}
-		});
-
 		mapInst.attributionControl?.setPrefix(false);
 
-		const tileLayer = new (OfflineOsmTileLayer as unknown as new (
-			url: string,
-			opts: LeafletNS.TileLayerOptions
-		) => LeafletNS.TileLayer)('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 18,
-			attribution: '&copy; OpenStreetMap'
-		});
+		const tileLayer = createOfflineOsmTileLayer(
+			leaflet,
+			() => themeState.isDark,
+			'&copy; OpenStreetMap'
+		);
 		tileLayer.addTo(mapInst);
 
 		const pinIcon = leaflet.divIcon({
@@ -180,18 +111,20 @@
 		leaflet.marker([lat, lng], { icon: pinIcon }).addTo(mapInst);
 
 		map = mapInst;
-		setTimeout(() => {
+		invalidateTimer = setTimeout(() => {
 			if (map === mapInst) mapInst.invalidateSize({ animate: false });
-		}, 60);
+		}, 90);
 	}
 
 	$effect(() => {
 		const cur = active;
-		if (!cur) {
-			destroyMap();
-			return;
-		}
-		void mountMiniMap(cur.location.latitude, cur.location.longitude);
+		untrack(() => {
+			if (!cur) {
+				destroyMap();
+				return;
+			}
+			void mountMiniMap(cur.location.latitude, cur.location.longitude);
+		});
 	});
 
 	function handleWindowKeydown(event: KeyboardEvent): void {
@@ -240,11 +173,11 @@
 	>
 		<!-- Interactive Mini-Map Canvas (Official Memos 2026 style) -->
 		<div
-			class="relative isolate z-0 h-[176px] w-full overflow-hidden rounded-xl border border-[var(--xm-divider)] bg-[#e9edf2] dark:bg-[#181a1f]"
+			class="relative isolate z-0 h-[176px] w-full overflow-hidden rounded-xl border border-[var(--xm-divider)] bg-[#e8eef5] dark:bg-[#181a1f]"
 		>
 			<div
 				bind:this={mapEl}
-				class="xm-osm-map h-full w-full {themeState.isDark ? 'xm-osm-dark' : ''}"
+				class="xm-osm-map absolute inset-0 h-full w-full {themeState.isDark ? 'xm-osm-dark' : ''}"
 			></div>
 
 			<!-- Floating Top-Right Controls: Open on Full Map + Zoom In + Zoom Out -->

@@ -253,6 +253,12 @@
 										alt={res.filename}
 										loading="lazy"
 										decoding="async"
+										onerror={(e) => {
+											const img = e.currentTarget as HTMLImageElement;
+											if (img.dataset.fallbackTried) return;
+											img.dataset.fallbackTried = '1';
+											img.src = getMediaUrl(res.uid, false);
+										}}
 										class="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.03]"
 									/>
 								</button>

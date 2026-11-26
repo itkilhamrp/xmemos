@@ -30,6 +30,8 @@ mod desktop;
 mod desktop_dialog;
 #[cfg(desktop)]
 mod desktop_shortcut;
+#[cfg(desktop)]
+mod sticky_icon;
 #[cfg(mobile)]
 mod mobile;
 
@@ -41,6 +43,8 @@ pub use error::{Error, Result};
 
 #[cfg(desktop)]
 pub use desktop::resolve_portable_data_dir;
+#[cfg(desktop)]
+pub use desktop_shortcut::extract_open_memo_uid_from_args;
 #[cfg(desktop)]
 use desktop::XmemosStorage;
 #[cfg(mobile)]

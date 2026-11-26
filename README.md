@@ -23,7 +23,7 @@
 | :--- | :--- | :--- |
 | **Android** (API 24–36) | `.apk` (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `universal`) | Deterministic v2/v3 signed, 100% GMS-free, F-Droid friendly |
 | **GNU/Linux (AppImage)** | `.AppImage` (`x86_64`, `aarch64`) | Built on Ubuntu 22.04 (`glibc 2.35`), stripped & lean (`bundleMediaFramework: false`); cross-distro executable |
-| **GNU/Linux (Flatpak)** | `.flatpak` (`x86_64`, `aarch64`) | Sandboxed GNOME 51 single-file offline bundle (`--share=network` disabled, Portal file dialogs) |
+| **GNU/Linux (Flatpak)** | `.flatpak` (`x86_64`, `aarch64`) | Sandboxed GNOME 51 single-file bundle (Portal file dialogs; `--share=network` strictly CSP-scoped to FOSS OpenStreetMap tiles/geocoding) |
 | **Windows 10/11 (Installer)** | `-setup.exe` (`x64`) | 100% offline lean NSIS LZMA installer (~5–6 MB, `webviewInstallMode: skip`, 0 network calls; uses OS-preinstalled Windows 10/11 WebView2 Runtime) |
 | **Windows 10/11 (Portable)** | `-portable.zip` (`x64`) | Extract & run `Xmemos.exe`; self-contained `./data/` via `portable.flag` |
 | **macOS 12+** | `.dmg` (`arm64` Apple Silicon & `x64` Intel) | Native per-architecture disk images |

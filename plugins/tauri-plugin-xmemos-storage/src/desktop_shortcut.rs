@@ -26,7 +26,9 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{Error, Result};
+use crate::desktop::resolve_portable_data_dir;
 use crate::models::{CreateMemoShortcutRequest, CreateMemoShortcutResponse};
+use crate::sticky_icon;
 
 const OPEN_MEMO_FLAG: &str = "--open-memo=";
 
@@ -205,6 +207,13 @@ fn resolve_desktop_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     }
 }
 
+fn resolve_sticky_icons_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    let base = resolve_portable_data_dir().or_else(|| app.path().app_data_dir().ok())?;
+    let dir = base.join("sticky-icons");
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 pub fn create_desktop_memo_shortcut<R: Runtime>(
     app: &AppHandle<R>,
     req: &CreateMemoShortcutRequest,
@@ -228,6 +237,7 @@ pub fn create_desktop_memo_shortcut<R: Runtime>(
             &title,
             &preview,
             &req.memo_uid,
+            req.color.as_deref(),
         )
     }
 
@@ -237,7 +247,7 @@ pub fn create_desktop_memo_shortcut<R: Runtime>(
             Error::Storage("Could not locate Windows Desktop directory".to_string())
         })?;
         fs::create_dir_all(&desktop_dir)?;
-        create_windows_lnk_shortcut(&desktop_dir, &file_stem, &preview, &req.memo_uid)
+        create_windows_lnk_shortcut(app, &desktop_dir, &file_stem, &preview, &req.memo_uid, req.color.as_deref())
     }
 
     #[cfg(target_os = "macos")]
@@ -246,7 +256,7 @@ pub fn create_desktop_memo_shortcut<R: Runtime>(
             Error::Storage("Could not locate macOS Desktop directory".to_string())
         })?;
         fs::create_dir_all(&desktop_dir)?;
-        create_macos_app_shortcut(&desktop_dir, &file_stem, &title, &req.memo_uid)
+        create_macos_app_shortcut(&desktop_dir, &file_stem, &title, &req.memo_uid, req.color.as_deref())
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
@@ -283,6 +293,7 @@ fn create_linux_desktop_entry<R: Runtime>(
     title: &str,
     preview: &str,
     memo_uid: &str,
+    color: Option<&str>,
 ) -> Result<CreateMemoShortcutResponse> {
     use std::os::unix::fs::PermissionsExt;
     use crate::desktop_dialog;
@@ -290,14 +301,23 @@ fn create_linux_desktop_entry<R: Runtime>(
     let is_flatpak = Path::new("/.flatpak-info").exists();
     let flag = format!("{OPEN_MEMO_FLAG}{memo_uid}");
 
+    let sticky_svg_icon = resolve_sticky_icons_dir(app).and_then(|dir| {
+        let svg_path = dir.join(format!("sticky-{memo_uid}.svg"));
+        let svg = sticky_icon::render_sticky_note_svg(title, preview, color);
+        fs::write(&svg_path, svg).ok()?;
+        Some(svg_path.to_string_lossy().to_string())
+    });
+
     let (exec_line, icon_value) = if is_flatpak {
         (
             format!("flatpak run org.xmemos.app {flag}"),
-            "org.xmemos.app".to_string(),
+            sticky_svg_icon.unwrap_or_else(|| "org.xmemos.app".to_string()),
         )
     } else if let Ok(appimage) = std::env::var("APPIMAGE") {
         let trimmed = appimage.trim();
-        let icon = resolve_linux_icon(app).unwrap_or_else(|| "xmemos".to_string());
+        let icon = sticky_svg_icon
+            .or_else(|| resolve_linux_icon(app))
+            .unwrap_or_else(|| "xmemos".to_string());
         (
             format!("{} {flag}", escape_desktop_exec_arg(trimmed)),
             icon,
@@ -305,7 +325,9 @@ fn create_linux_desktop_entry<R: Runtime>(
     } else {
         let exe = std::env::current_exe()
             .map_err(|e| Error::Storage(format!("Could not resolve executable path: {e}")))?;
-        let icon = resolve_linux_icon(app).unwrap_or_else(|| "xmemos".to_string());
+        let icon = sticky_svg_icon
+            .or_else(|| resolve_linux_icon(app))
+            .unwrap_or_else(|| "xmemos".to_string());
         (
             format!(
                 "{} {flag}",
@@ -397,11 +419,13 @@ fn resolve_linux_icon<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
 }
 
 #[cfg(target_os = "windows")]
-fn create_windows_lnk_shortcut(
+fn create_windows_lnk_shortcut<R: Runtime>(
+    app: &AppHandle<R>,
     desktop_dir: &Path,
     file_stem: &str,
     preview: &str,
     memo_uid: &str,
+    color: Option<&str>,
 ) -> Result<CreateMemoShortcutResponse> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
@@ -416,7 +440,13 @@ fn create_windows_lnk_shortcut(
         .unwrap_or_else(|| desktop_dir.to_path_buf());
     let dest = desktop_dir.join(format!("{file_stem}.lnk"));
     let args = format!("{OPEN_MEMO_FLAG}{memo_uid}");
-    let icon_loc = format!("{},0", exe.to_string_lossy());
+    let sticky_ico = resolve_sticky_icons_dir(app).and_then(|dir| {
+        let ico_path = dir.join(format!("sticky-{memo_uid}.ico"));
+        let ico_bytes = sticky_icon::build_sticky_note_ico(color);
+        fs::write(&ico_path, ico_bytes).ok()?;
+        Some(format!("{},0", ico_path.to_string_lossy()))
+    });
+    let icon_loc = sticky_ico.unwrap_or_else(|| format!("{},0", exe.to_string_lossy()));
 
     // Pass all values strictly via environment variables to eliminate script/shell injection
     let ps_script = "$ws = New-Object -ComObject WScript.Shell; \
@@ -491,6 +521,7 @@ fn create_macos_app_shortcut(
     file_stem: &str,
     title: &str,
     memo_uid: &str,
+    color: Option<&str>,
 ) -> Result<CreateMemoShortcutResponse> {
     use std::os::unix::fs::PermissionsExt;
 
@@ -505,11 +536,14 @@ fn create_macos_app_shortcut(
     fs::create_dir_all(&macos_dir)?;
     fs::create_dir_all(&resources_dir)?;
 
-    let mut has_icns = false;
-    if let Some(ref bundle) = app_bundle {
-        let src_icns = bundle.join("Contents").join("Resources").join("icon.icns");
-        if src_icns.exists() && fs::copy(&src_icns, resources_dir.join("AppIcon.icns")).is_ok() {
-            has_icns = true;
+    let icns_bytes = sticky_icon::build_sticky_note_icns(color);
+    let mut has_icns = fs::write(resources_dir.join("AppIcon.icns"), icns_bytes).is_ok();
+    if !has_icns {
+        if let Some(ref bundle) = app_bundle {
+            let src_icns = bundle.join("Contents").join("Resources").join("icon.icns");
+            if src_icns.exists() && fs::copy(&src_icns, resources_dir.join("AppIcon.icns")).is_ok() {
+                has_icns = true;
+            }
         }
     }
 

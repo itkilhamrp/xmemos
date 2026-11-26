@@ -22,6 +22,7 @@
 @import 'tailwindcss';
 @import 'konsta/svelte/theme.css';
 @import 'katex/dist/katex.min.css';
+@import 'leaflet/dist/leaflet.css';
 
 /* ==========================================================================
    Xmemos iOS Design Tokens & WCAG AA/AAA High-Contrast Light / Dark Themes
@@ -761,9 +762,15 @@ input[type='search']::-webkit-search-results-decoration {
 .xm-osm-map {
 	font-family: inherit;
 	z-index: 1;
+	touch-action: none;
 }
+.xm-osm-map .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+}
+/* Use compositor-native opacity over #181a1f instead of CSS filter on the 3D-transformed tile-pane to prevent Android WebView GPU blackouts */
 .xm-osm-dark .leaflet-tile-pane {
-	filter: brightness(0.78) contrast(1.06) saturate(0.82);
+	opacity: 0.84;
 }
 .xm-osm-map .leaflet-control-attribution {
 	background: rgba(255, 255, 255, 0.78);

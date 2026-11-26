@@ -30,7 +30,7 @@
       "pattern": {
         "use": "brownfield"
       },
-      "csp": "default-src 'self'; img-src 'self' xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost asset: http://asset.localhost https://asset.localhost data: blob:; media-src 'self' xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost asset: http://asset.localhost https://asset.localhost blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost;",
+      "csp": "default-src 'self'; img-src 'self' xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost asset: http://asset.localhost https://asset.localhost https://tile.openstreetmap.org https://*.tile.openstreetmap.org data: blob:; media-src 'self' xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost asset: http://asset.localhost https://asset.localhost blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://photon.komoot.io;",
       "assetProtocol": {
         "enable": true,
         "scope": [

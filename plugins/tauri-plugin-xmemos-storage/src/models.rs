@@ -105,6 +105,8 @@ pub struct CreateMemoShortcutRequest {
     pub preview: String,
     #[serde(default)]
     pub pinned: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

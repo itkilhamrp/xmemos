@@ -20,13 +20,14 @@
 -->
 
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { LocateFixed, Minus, Plus } from 'lucide-svelte';
 	import type * as LeafletNS from 'leaflet';
 
 	import { i18n } from '#lib/i18n/index.svelte.ts';
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import type { MemoLocation, MemoView } from '#lib/types/memo.ts';
+	import { createOfflineOsmTileLayer, loadLeaflet } from '#lib/utils/osm-tiles.ts';
 
 	export interface MapCluster {
 		id: string;
@@ -66,18 +67,8 @@
 	let zoomLevel = $state(2);
 	let hasFittedInitial = false;
 	let resizeObserver: ResizeObserver | null = null;
-
-	const TILE_CACHE_NAME = 'xmemos-osm-tiles-v1';
-
-	/**
-	 * Lightweight offline-first SVG fallback tile rendered when device is completely offline
-	 * and a requested OpenStreetMap tile has not been cached locally yet.
-	 */
-	function createOfflineFallbackDataUrl(isDark: boolean): string {
-		const bg = isDark ? '%23181a1f' : '%23e9edf2';
-		const stroke = isDark ? '%232a2e38' : '%23d4dce6';
-		return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="${bg}"/><path d="M0 0h256v256" fill="none" stroke="${stroke}" stroke-width="1"/></svg>`;
-	}
+	let destroyed = false;
+	const invalidateTimers: ReturnType<typeof setTimeout>[] = [];
 
 	function computeClusters(
 		leaflet: typeof LeafletNS,
@@ -213,175 +204,144 @@
 		map?.zoomOut();
 	}
 
-	onMount(async () => {
-		if (!mapEl) return;
-		await import('leaflet/dist/leaflet.css');
-		const leaflet = await import('leaflet');
-		L = leaflet;
+	onMount(() => {
+		destroyed = false;
 
-		const initialCenter: [number, number] = droppedPin
-			? [droppedPin.latitude, droppedPin.longitude]
-			: [20, 10];
-		const initialZoom = droppedPin ? 12 : 2;
+		void (async () => {
+			const leaflet = await loadLeaflet();
+			if (destroyed || !mapEl) return;
 
-		const mapInst = leaflet.map(mapEl, {
-			center: initialCenter,
-			zoom: initialZoom,
-			minZoom: 2,
-			maxZoom: 18,
-			zoomControl: false,
-			attributionControl: true,
-			worldCopyJump: true
-		});
+			const initialCenter: [number, number] = droppedPin
+				? [droppedPin.latitude, droppedPin.longitude]
+				: [20, 10];
+			const initialZoom = droppedPin ? 12 : 2;
 
-		// Offline-first OpenStreetMap / OsmAnd-compatible TileLayer with Cache API persistence
-		const OfflineOsmTileLayer = leaflet.TileLayer.extend({
-			createTile(coords: LeafletNS.Coords, done: LeafletNS.DoneCallback) {
-				const img = document.createElement('img');
-				img.alt = '';
-				img.setAttribute('role', 'presentation');
-				const url = (this as unknown as LeafletNS.TileLayer).getTileUrl(coords);
-				const fallback = createOfflineFallbackDataUrl(themeState.isDark);
-
-				const finishFallback = () => {
-					img.src = fallback;
-					done(undefined, img);
-				};
-
-				if (typeof caches !== 'undefined') {
-					void caches
-						.open(TILE_CACHE_NAME)
-						.then(async (cache) => {
-							const cached = await cache.match(url);
-							if (cached) {
-								const blob = await cached.blob();
-								const objUrl = URL.createObjectURL(blob);
-								img.onload = () => {
-									URL.revokeObjectURL(objUrl);
-									done(undefined, img);
-								};
-								img.onerror = finishFallback;
-								img.src = objUrl;
-								return;
-							}
-							if (!navigator.onLine) {
-								finishFallback();
-								return;
-							}
-							try {
-								const resp = await fetch(url, { mode: 'cors' });
-								if (!resp.ok) {
-									finishFallback();
-									return;
-								}
-								void cache.put(url, resp.clone()).catch(() => {});
-								const blob = await resp.blob();
-								const objUrl = URL.createObjectURL(blob);
-								img.onload = () => {
-									URL.revokeObjectURL(objUrl);
-									done(undefined, img);
-								};
-								img.onerror = finishFallback;
-								img.src = objUrl;
-							} catch {
-								finishFallback();
-							}
-						})
-						.catch(() => {
-							img.onload = () => done(undefined, img);
-							img.onerror = finishFallback;
-							img.src = url;
-						});
-				} else {
-					img.onload = () => done(undefined, img);
-					img.onerror = finishFallback;
-					img.src = url;
-				}
-
-				return img;
-			}
-		});
-
-		mapInst.attributionControl?.setPrefix(false);
-
-		const tileLayer = new (OfflineOsmTileLayer as unknown as new (
-			url: string,
-			opts: LeafletNS.TileLayerOptions
-		) => LeafletNS.TileLayer)('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 18,
-			attribution: '&copy; OpenStreetMap contributors'
-		});
-		tileLayer.addTo(mapInst);
-
-		markerLayer = leaflet.layerGroup().addTo(mapInst);
-		droppedLayer = leaflet.layerGroup().addTo(mapInst);
-		map = mapInst;
-
-		mapInst.on('zoomend', () => {
-			zoomLevel = mapInst.getZoom();
-			renderMarkers();
-		});
-
-		mapInst.on('click', (ev: LeafletNS.LeafletMouseEvent) => {
-			onDropPin?.(
-				Math.round(ev.latlng.lat * 1_000_000) / 1_000_000,
-				Math.round(ev.latlng.lng * 1_000_000) / 1_000_000
-			);
-		});
-
-		if (typeof ResizeObserver !== 'undefined') {
-			resizeObserver = new ResizeObserver(() => {
-				mapInst.invalidateSize({ animate: false });
+			const mapInst = leaflet.map(mapEl, {
+				center: initialCenter,
+				zoom: initialZoom,
+				minZoom: 2,
+				maxZoom: 18,
+				zoomControl: false,
+				attributionControl: true,
+				worldCopyJump: true
 			});
-			resizeObserver.observe(mapEl);
-		}
+
+			mapInst.attributionControl?.setPrefix(false);
+
+			const tileLayer = createOfflineOsmTileLayer(
+				leaflet,
+				() => themeState.isDark,
+				'&copy; OpenStreetMap contributors'
+			);
+			tileLayer.addTo(mapInst);
+
+			markerLayer = leaflet.layerGroup().addTo(mapInst);
+			droppedLayer = leaflet.layerGroup().addTo(mapInst);
+			L = leaflet;
+			map = mapInst;
+
+			mapInst.on('zoomend', () => {
+				zoomLevel = mapInst.getZoom();
+				renderMarkers();
+			});
+
+			mapInst.on('click', (ev: LeafletNS.LeafletMouseEvent) => {
+				onDropPin?.(
+					Math.round(ev.latlng.lat * 1_000_000) / 1_000_000,
+					Math.round(ev.latlng.lng * 1_000_000) / 1_000_000
+				);
+			});
+
+			// Ensure Android WebView recalculates container bounds after .xm-page-enter & flex layout settle
+			const safeInvalidate = () => {
+				if (!destroyed && map === mapInst) {
+					mapInst.invalidateSize({ animate: false });
+				}
+			};
+			mapInst.whenReady(() => {
+				requestAnimationFrame(safeInvalidate);
+			});
+			invalidateTimers.push(setTimeout(safeInvalidate, 160));
+			invalidateTimers.push(setTimeout(safeInvalidate, 380));
+
+			if (typeof ResizeObserver !== 'undefined') {
+				resizeObserver = new ResizeObserver(() => {
+					safeInvalidate();
+				});
+				resizeObserver.observe(mapEl);
+			}
+		})();
 	});
 
 	onDestroy(() => {
+		destroyed = true;
+		for (const timer of invalidateTimers) {
+			clearTimeout(timer);
+		}
+		invalidateTimers.length = 0;
 		resizeObserver?.disconnect();
+		resizeObserver = null;
 		map?.remove();
 		map = null;
+		markerLayer = null;
+		droppedLayer = null;
 	});
 
 	$effect(() => {
 		const _memos = memos;
 		const _sel = selectedClusterId;
 		const _zoom = zoomLevel;
+		const _leaflet = L;
+		const _map = map;
+		const _focusUid = focusMemoUid;
+		if (!_leaflet || !_map) return;
 		void [_memos, _sel, _zoom];
-		if (!L || !map) return;
-		renderMarkers();
-		if (!hasFittedInitial && _memos.length > 0 && !focusMemoUid) {
-			hasFittedInitial = true;
-			fitAllResults();
-		}
+		untrack(() => {
+			renderMarkers();
+			if (!hasFittedInitial && _memos.length > 0 && !_focusUid) {
+				hasFittedInitial = true;
+				fitAllResults();
+			}
+		});
 	});
 
 	$effect(() => {
 		const _pin = droppedPin;
-		void _pin;
-		renderDroppedPin();
-		if (pickerMode && _pin && map) {
-			map.setView([_pin.latitude, _pin.longitude], Math.max(map.getZoom(), 11), { animate: true });
-		}
+		const _leaflet = L;
+		const _map = map;
+		if (!_leaflet || !_map) return;
+		untrack(() => {
+			renderDroppedPin();
+			if (pickerMode && _pin) {
+				_map.setView([_pin.latitude, _pin.longitude], Math.max(_map.getZoom(), 11), {
+					animate: true
+				});
+			}
+		});
 	});
 
 	$effect(() => {
 		const uid = focusMemoUid;
-		if (!uid || !L || !map) return;
-		const target = memos.find((m) => m.memo.uid === uid && m.memo.payload.location);
-		if (!target?.memo.payload.location) return;
-		const { latitude, longitude } = target.memo.payload.location;
-		map.setView([latitude, longitude], 12, { animate: true });
-		hasFittedInitial = true;
+		const _leaflet = L;
+		const _map = map;
+		const _memos = memos;
+		if (!uid || !_leaflet || !_map) return;
+		untrack(() => {
+			const target = _memos.find((m) => m.memo.uid === uid && m.memo.payload.location);
+			if (!target?.memo.payload.location) return;
+			const { latitude, longitude } = target.memo.payload.location;
+			_map.setView([latitude, longitude], 12, { animate: true });
+			hasFittedInitial = true;
+		});
 	});
 </script>
 
 <div
-	class="relative isolate z-0 h-full w-full overflow-hidden rounded-2xl border border-[var(--xm-divider)] bg-[#e9edf2] dark:bg-[#181a1f]"
+	class="relative isolate z-0 h-full w-full overflow-hidden rounded-2xl border border-[var(--xm-divider)] bg-[#e8eef5] dark:bg-[#181a1f]"
 >
 	<div
 		bind:this={mapEl}
-		class="xm-osm-map h-full w-full {themeState.isDark ? 'xm-osm-dark' : ''}"
+		class="xm-osm-map absolute inset-0 h-full w-full {themeState.isDark ? 'xm-osm-dark' : ''}"
 		aria-label={i18n.t('map.canvasLabel')}
 	></div>
 

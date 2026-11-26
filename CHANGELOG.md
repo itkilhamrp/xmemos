@@ -5,6 +5,34 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.32] - 2026-11-26
+
+### Fixed
+- **Broken Static Media & Image Previews on Android WebView & Windows WebView2 (`src/lib/api/invoke.ts`, `src-tauri/src/lib.rs`, `src-tauri/src/service/media.rs`, `src-tauri/tauri.conf.json`, `src/lib/components/media/AttachmentGrid.svelte`, `src/routes/resources/+page.svelte`)**:
+  - Fixed `getMediaUrl()` to use Tauri v2's native platform-aware `convertFileSrc(uid, 'xmemos-media')` so **Android WebView** and **Windows WebView2** resolve custom protocol URLs to `http(s)://xmemos-media.localhost/<uid>` instead of hardcoded `xmemos-media://localhost/<uid>` (which failed with `ERR_UNKNOWN_URL_SCHEME`), while preserving `xmemos-media://localhost/<uid>` on GNU/Linux and macOS.
+  - Upgraded `handle_media_protocol()` in `src-tauri/src/lib.rs` with full HTTP `Range` (`206 Partial Content`, `Accept-Ranges: bytes`, `Content-Range`, `Content-Length`, `HEAD`/`OPTIONS`) support for reliable `<video>` and `<audio>` playback/seeking, `Access-Control-Allow-Origin: *` for cross-origin Canvas share-card rendering, and defensive `localhost/` path stripping.
+  - Added `xmemos-media: http://xmemos-media.localhost https://xmemos-media.localhost` to `connect-src` in `src-tauri/tauri.conf.json`, guarded against 0-byte thumbnail reads in `src-tauri/src/service/media.rs`, and added one-shot full-image `onerror` fallbacks in `AttachmentGrid.svelte` and `src/routes/resources/+page.svelte`.
+
+## [2.7.31] - 2026-11-26
+
+### Changed & Fixed
+- **MS Sticky Notes-Style Desktop Memo Shortcuts (`plugins/tauri-plugin-xmemos-storage/src/{sticky_icon.rs,desktop_shortcut.rs,models.rs,lib.rs}`, `src-tauri/src/lib.rs`, `src/routes/+layout.svelte`, `src/lib/api/shortcut.ts`, `src/lib/components/memo/MemoActionsSheet.svelte`, `src/routes/sticky/[uid]/+page.svelte`)**:
+  - Replaced the generic Xmemos app icon on Desktop memo shortcuts with a zero-extra-crate native **MS Sticky Notes card icon** matching the memo's sticky color (defaulting to warm MS Sticky Notes yellow `#fff5a8`): scalable SVG with real memo title & wrapped preview text on **GNU/Linux** (`.desktop`), 128×128 RGBA PNG-compressed `.ico` on **Windows 10/11** (`.lnk`), and 128×128 RGBA `ic07` `.icns` on **macOS** (`.app`).
+  - Launching a Desktop Sticky Note shortcut (`--open-memo=<uid>`) now opens **directly into the floating MS Sticky Note window** while keeping the main Xmemos window hidden (unless PIN lock is enabled), and exits cleanly with zero background ghost process when the last floating sticky note closes.
+  - Added MS Sticky Notes quick-edit double-click on memo content and `Ctrl/Cmd+S` save shortcut inside floating sticky windows.
+- **Cross-OS Desktop Map Hardening — GNU/Linux, Windows & macOS (`packaging/flatpak/org.xmemos.app.yaml`, `src/app.css`, `src/lib/utils/osm-tiles.ts`, `src/routes/map/+page.svelte`)**:
+  - Added `--share=network` to the GNU/Linux Flatpak manifest so OpenStreetMap tiles and Nominatim/Photon reverse geocoding work inside Flatpak while `tauri.conf.json` CSP strictly restricts network egress to FOSS OpenStreetMap hosts only.
+  - Imported `leaflet/dist/leaflet.css` statically in `src/app.css` to prevent first-frame tile geometry races on WebKitGTK (GNU/Linux), WKWebView (macOS), WebView2 (Windows), and Android WebView, set `referrerPolicy = 'no-referrer-when-downgrade'` on direct tile loads, and added an automatic `https://www.openstreetmap.org/` browser fallback when Desktop OSes lack a `geo:` URI handler.
+
+## [2.7.30] - 2026-11-26
+
+### Fixed
+- **Android Map Page Blank/Black Canvas & Disappearing Map Container (`src/routes/map/+page.svelte`, `src/lib/utils/osm-tiles.ts`, `src/lib/components/map/OsmMapCanvas.svelte`, `src/lib/components/map/LocationPreviewPopover.svelte`, `src-tauri/tauri.conf.json`, `src/app.css`)**:
+  - Fixed mobile flexbox height collapse on `/map` where `flex-1` (`flex-basis: 0%`) inside a mobile `flex-col` container overrode the explicit height (`h-[min(58dvh,460px)]`), causing `OsmMapCanvas` (`h-full`) to collapse to `0px` and disappear on Android WebView; scoped flex growth to `md:flex-1 md:shrink` with explicit mobile `shrink-0` height and positioned the Leaflet mount container with `absolute inset-0 h-full w-full`.
+  - Updated `src-tauri/tauri.conf.json` CSP (`img-src` and `connect-src`) to allow FOSS OpenStreetMap tile (`https://tile.openstreetmap.org`, `https://*.tile.openstreetmap.org`) and reverse-geocoding (`https://nominatim.openstreetmap.org`, `https://photon.komoot.io`) endpoints, resolving the CSP block that forced all map tiles into a dark blank fallback.
+  - Replaced CSS `filter` on `.xm-osm-dark .leaflet-tile-pane` with compositor-native `opacity: 0.84` over `#181a1f` to prevent Android Chromium WebView GPU compositing blackouts on 3D-transformed Leaflet tile panes, and added `touch-action: none` plus `max-width: none !important; max-height: none !important` on `.leaflet-tile` to protect tiles from Tailwind v4 preflight rules.
+  - Extracted a shared, Android-resilient tile loader (`src/lib/utils/osm-tiles.ts`) with safe ESM/CJS Leaflet unwrapping, `Cache` API + CORS fetch with automatic direct `<img>` fallback (critical on Android WebView `http://tauri.localhost`), proper Blob URL revocation on both `onload` and `onerror`, legible light/dark offline grid tiles, unmount lifecycle guards, post-animation `invalidateSize()` passes, Svelte 5 `untrack()` guards, and native Tauri `plugin:opener|open_url` dispatch for `geo:` OsmAnd intents.
+
 ## [2.7.29] - 2026-11-26
 
 ### Fixed

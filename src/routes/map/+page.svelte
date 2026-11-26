@@ -20,7 +20,8 @@
 -->
 
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import { invoke, isTauri } from '@tauri-apps/api/core';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { Button, Chip } from 'konsta/svelte';
@@ -35,6 +36,7 @@
 	import { memosState } from '#lib/state/memos.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
 	import { reverseGeocodeNearestPlace } from '#lib/utils/geocode.ts';
+	import { isDesktopTauri } from '#lib/utils/platform.ts';
 	import AppShell from '#lib/components/layout/AppShell.svelte';
 	import OsmMapCanvas, { type MapCluster } from '#lib/components/map/OsmMapCanvas.svelte';
 	import MemoCard from '#lib/components/memo/MemoCard.svelte';
@@ -83,7 +85,20 @@
 
 	function openInOsmAnd(loc: MemoLocation): void {
 		const uri = buildOsmAndGeoUrl(loc.latitude, loc.longitude, loc.placeholder);
-		window.open(uri, '_blank', 'noopener,noreferrer');
+		const webFallback = `https://www.openstreetmap.org/?mlat=${loc.latitude.toFixed(6)}&mlon=${loc.longitude.toFixed(6)}#map=15/${loc.latitude.toFixed(6)}/${loc.longitude.toFixed(6)}`;
+		if (isTauri()) {
+			void invoke('plugin:opener|open_url', { url: uri }).catch(() => {
+				if (isDesktopTauri()) {
+					void invoke('plugin:opener|open_url', { url: webFallback }).catch(() => {
+						window.open(webFallback, '_blank', 'noopener,noreferrer');
+					});
+				} else {
+					window.open(uri, '_blank', 'noopener,noreferrer');
+				}
+			});
+		} else {
+			window.open(webFallback, '_blank', 'noopener,noreferrer');
+		}
 	}
 
 	function upsertLocatedMemo(saved: MemoView): void {
@@ -189,40 +204,42 @@
 
 	$effect(() => {
 		const uid = authState.currentUser?.id ?? null;
-		const seq = ++loadSeq;
-		loading = true;
-		void memoApi
-			.list({
-				rowStatus: 'NORMAL',
-				visibilityList: uid ? undefined : ['PUBLIC'],
-				limit: 2000
-			})
-			.then((all) => {
-				if (seq !== loadSeq) return;
-				locatedMemos = all.filter(
-					(m) =>
-						m.memo.payload.location &&
-						Number.isFinite(m.memo.payload.location.latitude) &&
-						Number.isFinite(m.memo.payload.location.longitude)
-				);
-				if (focusMemoUid) {
-					const target = locatedMemos.find((m) => m.memo.uid === focusMemoUid);
-					if (target?.memo.payload.location) {
-						selectedCluster = {
-							id: `c-${target.memo.id}`,
-							latitude: target.memo.payload.location.latitude,
-							longitude: target.memo.payload.location.longitude,
-							memos: [target],
-							label:
-								target.memo.payload.location.placeholder ||
-								`${target.memo.payload.location.latitude.toFixed(4)}, ${target.memo.payload.location.longitude.toFixed(4)}`
-						};
+		untrack(() => {
+			const seq = ++loadSeq;
+			loading = true;
+			void memoApi
+				.list({
+					rowStatus: 'NORMAL',
+					visibilityList: uid ? undefined : ['PUBLIC'],
+					limit: 2000
+				})
+				.then((all) => {
+					if (seq !== loadSeq) return;
+					locatedMemos = all.filter(
+						(m) =>
+							m.memo.payload.location &&
+							Number.isFinite(m.memo.payload.location.latitude) &&
+							Number.isFinite(m.memo.payload.location.longitude)
+					);
+					if (focusMemoUid) {
+						const target = locatedMemos.find((m) => m.memo.uid === focusMemoUid);
+						if (target?.memo.payload.location) {
+							selectedCluster = {
+								id: `c-${target.memo.id}`,
+								latitude: target.memo.payload.location.latitude,
+								longitude: target.memo.payload.location.longitude,
+								memos: [target],
+								label:
+									target.memo.payload.location.placeholder ||
+									`${target.memo.payload.location.latitude.toFixed(4)}, ${target.memo.payload.location.longitude.toFixed(4)}`
+							};
+						}
 					}
-				}
-			})
-			.finally(() => {
-				if (seq === loadSeq) loading = false;
-			});
+				})
+				.finally(() => {
+					if (seq === loadSeq) loading = false;
+				});
+		});
 	});
 </script>
 
@@ -277,7 +294,7 @@
 				{/if}
 
 				<!-- Interactive OsmAnd / OpenStreetMap Offline-First Canvas -->
-				<div class="order-1 h-[min(58dvh,460px)] min-h-[320px] min-w-0 flex-1 sm:h-[480px] md:h-full md:min-h-0">
+				<div class="order-1 h-[min(60dvh,460px)] min-h-[340px] w-full min-w-0 shrink-0 sm:h-[480px] md:h-full md:min-h-0 md:flex-1 md:shrink">
 					<OsmMapCanvas
 						memos={visibleMemos}
 						selectedClusterId={selectedCluster?.id ?? null}

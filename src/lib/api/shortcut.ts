@@ -36,6 +36,7 @@ export interface CreateMemoShortcutPayload {
 	title: string;
 	preview: string;
 	pinned: boolean;
+	color?: StickyColorId;
 }
 
 export interface CreateMemoShortcutResult {
@@ -81,7 +82,7 @@ export function resolveStickyNativeBg(color: StickyColorId, isDark: boolean): [n
 }
 
 export function loadStickyPrefs(memoUid: string): StickyWindowPrefs {
-	const defaults: StickyWindowPrefs = { color: 'slate', alwaysOnTop: false };
+	const defaults: StickyWindowPrefs = { color: 'yellow', alwaysOnTop: false };
 	if (typeof window === 'undefined' || !VALID_UID_RE.test(memoUid)) return defaults;
 	try {
 		const raw = localStorage.getItem(`${STICKY_PREFS_PREFIX}${memoUid}`);

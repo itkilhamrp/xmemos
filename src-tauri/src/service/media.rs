@@ -407,7 +407,9 @@ pub fn read_resource_bytes(
         let thumb_path = state.thumbs_dir().join(format!("{}.webp", res.uid));
         if thumb_path.exists() {
             if let Ok(data) = fs::read(&thumb_path) {
-                return Ok((data, "image/webp".to_string()));
+                if !data.is_empty() {
+                    return Ok((data, "image/webp".to_string()));
+                }
             }
         }
     }

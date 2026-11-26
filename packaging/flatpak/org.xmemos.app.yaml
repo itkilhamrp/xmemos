@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Xmemos Contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Official Tauri v2 Flatpak manifest (GNOME 51 runtime + WebKitGTK 4.1)
-# Strictly offline sandbox: no --share=network, no --filesystem=host;
+# Least-privilege sandbox: no --filesystem=host; --share=network enabled strictly for CSP-locked FOSS OpenStreetMap tiles/geocoding;
 # file Save/Open dialogs route securely via xdg-desktop-portal (GtkFileChooserNative).
 
 id: org.xmemos.app
@@ -14,6 +14,7 @@ finish-args:
   - --socket=fallback-x11
   - --device=dri
   - --share=ipc
+  - --share=network
   - --socket=pulseaudio
   - --filesystem=xdg-desktop:create
 modules:

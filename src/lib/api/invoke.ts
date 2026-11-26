@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core';
 
 export interface IpcErrorPayload {
 	code: string;
@@ -53,6 +53,8 @@ export async function callIpc<T>(command: string, args?: Record<string, unknown>
  * Builds the permission-checked custom Tauri v2 protocol URL for a resource attachment.
  */
 export function getMediaUrl(uid: string, thumb = false): string {
-	const base = `xmemos-media://localhost/${encodeURIComponent(uid)}`;
+	const base = isTauri()
+		? convertFileSrc(uid, 'xmemos-media')
+		: `xmemos-media://localhost/${encodeURIComponent(uid)}`;
 	return thumb ? `${base}?thumb=1` : base;
 }

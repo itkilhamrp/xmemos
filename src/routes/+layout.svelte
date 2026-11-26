@@ -74,14 +74,14 @@
 	}
 
 	onMount(() => {
-		// Desktop-only zero-flash window reveal (Android WebView renders immediately without hidden-window IPC)
-		if (isDesktopTauri()) {
+		const revealMainWindow = () => {
+			if (!isDesktopTauri()) return;
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
 					void systemApi.showMainWindow().catch(() => {});
 				});
 			});
-		}
+		};
 
 		const stopKeyboardSync = initKeyboardViewportSync();
 		let unlistenShortcut: (() => void) | null = null;
@@ -96,11 +96,30 @@
 		void (async () => {
 			await authState.refresh();
 			if (!authState.hasHost && page.url.pathname !== '/auth') {
+				revealMainWindow();
 				await goto('/auth', { replaceState: true });
 				return;
 			}
-			// Non-blocking parallel shortcut & desktop-event wiring for instant mobile startup
-			void openPendingShortcutMemo();
+			// On Desktop, launching a Desktop Sticky Note shortcut opens the floating MS Sticky Note
+			// window directly while keeping the main window hidden (unless PIN-locked).
+			if (isDesktopTauri() && !isStickyRoute) {
+				const pendingUid = await shortcutApi.consumePendingMemoShortcut();
+				if (pendingUid && authState.hasHost && !authState.locked) {
+					try {
+						await shortcutApi.openStickyMemoWindow(pendingUid);
+					} catch {
+						revealMainWindow();
+					}
+				} else {
+					revealMainWindow();
+					if (pendingUid && authState.hasHost) {
+						void shortcutApi.openStickyMemoWindow(pendingUid);
+					}
+				}
+			} else {
+				revealMainWindow();
+				void openPendingShortcutMemo();
+			}
 			void shortcutApi
 				.onMemoShortcutOpened((memoUid) => {
 					if (authState.hasHost) {

@@ -127,7 +127,7 @@
 	let editing = $state(false);
 	let draftContent = $state('');
 	let saving = $state(false);
-	let color = $state<StickyColorId>('slate');
+	let color = $state<StickyColorId>('yellow');
 	let alwaysOnTop = $state(false);
 	let togglingTop = $state(false);
 	let commentsOpen = $state(false);
@@ -502,7 +502,7 @@
 			<textarea
 				bind:value={draftContent}
 				onkeydown={(e) => {
-					if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+					if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key.toLowerCase() === 's')) {
 						e.preventDefault();
 						void saveQuickEdit();
 					} else if (e.key === 'Escape') {
@@ -513,7 +513,8 @@
 				class="h-full min-h-[160px] w-full resize-none bg-transparent text-[14.5px] leading-relaxed text-inherit outline-none"
 			></textarea>
 		{:else}
-			<div class="space-y-2.5">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="space-y-2.5" ondblclick={() => { if (isOwner) editing = true; }}>
 				<MemoContent
 					content={view.memo.content}
 					canToggleTask={isOwner}
