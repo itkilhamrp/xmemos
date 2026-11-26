@@ -5,6 +5,21 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.34] - 2026-11-26
+
+### Changed & Improved
+- **Zero-Config Automatic Persistent Android Release Signing in GitHub Actions (`.github/workflows/android-release.yml`, `.github/workflows/release.yml`, `AGENTS.md`, `docs/REPRODUCIBLE_BUILDS.md`)**:
+  - Upgraded `android-release.yml` to automatically bootstrap a permanent 10,000-day RSA-4096 PKCS12 signing keystore on first run and persist it inside a private, maintainer-only GitHub Draft Release (`xmemos-android-keystore-internal`) whenever `ANDROID_KEYSTORE_BASE64` is not manually configured—requiring zero local terminal commands and zero manual GitHub Secrets while guaranteeing 100% identical signing certificates across every future Android update.
+  - Preserved full priority override if custom `ANDROID_KEYSTORE_BASE64` secrets are ever added later, masked auto-generated credentials via `::add-mask::`, and added Immutable Invariant #10 to `AGENTS.md` so future AI updates never regress persistent Android signing.
+
+## [2.7.33] - 2026-11-26
+
+### Fixed
+- **Android In-Place APK Update Conflict (`INSTALL_FAILED_UPDATE_INCOMPATIBLE` / "Package conflicts with an existing package") (`.github/workflows/android-release.yml`, `.github/workflows/release.yml`, `scripts/generate-android-keystore.sh`, `.gitignore`, `docs/REPRODUCIBLE_BUILDS.md`)**:
+  - Eliminated the silent random ephemeral keystore fallback on published Android releases (`require_persistent_signing: true` when `publish_release` is enabled), which previously signed each GitHub Release with a different throwaway RSA key and prevented in-place Android updates without uninstalling.
+  - Added upfront `keytool` keystore/alias/password verification with whitespace-safe Base64 decoding (`tr -d '\r\n '`), explicitly pinned monotonic `defaultConfig.versionCode` (`major*1_000_000 + minor*1_000 + patch`) and `versionName` inside `build.gradle.kts`, and added an `aapt2 dump badging` assertion verifying `org.xmemos.app`, `versionCode`, and `versionName` on every signed APK.
+  - Added `scripts/generate-android-keystore.sh` to generate a permanent 10,000-day RSA-4096 PKCS12 release keystore and GitHub Secrets configuration in one command.
+
 ## [2.7.32] - 2026-11-26
 
 ### Fixed

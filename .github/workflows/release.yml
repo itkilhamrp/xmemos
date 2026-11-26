@@ -176,6 +176,8 @@ jobs:
     name: Android
     needs: preflight
     if: inputs.build_android
+    permissions:
+      contents: write
     uses: ./.github/workflows/android-release.yml
     with:
       app_version: ${{ needs.preflight.outputs.app_version }}

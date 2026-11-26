@@ -34,11 +34,19 @@ Xmemos is engineered to produce deterministic, auditable, and supply-chain-harde
 ./scripts/verify-repro.sh aarch64
 
 # Verify SHA-256 checksums of any downloaded platform package
-sha256sum -c --ignore-missing Xmemos-v2.7.32-SHA256SUMS.txt
+sha256sum -c --ignore-missing Xmemos-v2.7.34-SHA256SUMS.txt
 
 # Verify Android APK signature & certificate fingerprints
-apksigner verify --verbose --print-certs Xmemos-v2.7.32-android-arm64-v8a-release.apk
+apksigner verify --verbose --print-certs Xmemos-v2.7.34-android-arm64-v8a-release.apk
 
 # Verify GitHub SLSA Build Provenance attestation (public repositories)
-gh attestation verify Xmemos-v2.7.32-linux-x86_64.AppImage --repo <OWNER>/<REPO>
+gh attestation verify Xmemos-v2.7.34-linux-x86_64.AppImage --repo <OWNER>/<REPO>
 ```
+
+## Automatic Persistent Android Release Signing (Seamless In-Place Updates)
+
+Android requires every update APK for `org.xmemos.app` to be signed with the **exact same signing certificate** and a strictly increasing `versionCode` (`major * 1_000_000 + minor * 1_000 + patch`).
+
+Xmemos handles this **100% automatically inside GitHub Actions** (`.github/workflows/android-release.yml`):
+1. **Automatic Zero-Config Mode (Default):** On the first workflow run without `ANDROID_KEYSTORE_BASE64`, GitHub Actions automatically generates a permanent 10,000-day RSA-4096 PKCS12 keystore and stores it in a private, maintainer-only GitHub Draft Release named `xmemos-android-keystore-internal` (never published, never expires). Every subsequent release automatically reuses that exact keystore so Android updates install cleanly in-place without uninstalling. **Do not delete or publish that draft release.**
+2. **Optional Custom Keystore Override:** If you prefer supplying your own offline keystore, you may optionally run `./scripts/generate-android-keystore.sh` and set `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` in GitHub Secrets—they automatically take priority over the draft-release keystore.

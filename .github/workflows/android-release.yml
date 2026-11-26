@@ -49,7 +49,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -150,10 +150,16 @@ jobs:
           -dontwarn javax.xml.**
           -dontwarn org.w3c.dom.bootstrap.DOMImplementationRegistry
           PROGUARD_EOF
-          cat << 'GRADLE_EOF' >> src-tauri/gen/android/app/build.gradle.kts
+          VERSION_CODE="$(node -e "const [maj,min,pat]=process.env.APP_VERSION.split('.').map(Number); console.log(maj*1000000 + min*1000 + pat);")"
+          echo "ANDROID_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
+          cat << GRADLE_EOF >> src-tauri/gen/android/app/build.gradle.kts
 
-          // Xmemos deterministic reproducible APK packaging rules
+          // Xmemos deterministic reproducible APK packaging & monotonic versionCode rules
           android {
+              defaultConfig {
+                  versionCode = ${VERSION_CODE}
+                  versionName = "${APP_VERSION}"
+              }
               dependenciesInfo {
                   includeInApk = false
                   includeInBundle = false
@@ -176,20 +182,104 @@ jobs:
           }
           GRADLE_EOF
 
-      - name: Decode Android signing keystore
+      - name: Resolve or auto-bootstrap persistent Android signing keystore
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          DRAFT_NAME="xmemos-android-keystore-internal"
+          BUNDLE_NAME="xmemos-signing-bundle.tar.gz"
+
           if [ -n "${ANDROID_KEYSTORE_BASE64}" ]; then
-            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/release.keystore"
-            echo "HAS_KEYSTORE=true" >> "$GITHUB_ENV"
+            if [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+              echo "::error::ANDROID_KEYSTORE_BASE64 is set, but ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, or ANDROID_KEY_PASSWORD is missing." >&2
+              exit 1
+            fi
+            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | tr -d '\r\n ' | base64 --decode > "${RUNNER_TEMP}/release.keystore"
+            SIGN_ALIAS="${ANDROID_KEY_ALIAS}"
+            SIGN_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+            SIGN_KEY_PASS="${ANDROID_KEY_PASSWORD}"
+            echo "Using custom ANDROID_KEYSTORE_BASE64 secret (alias=${SIGN_ALIAS})."
           else
-            keytool -genkeypair -v -keystore "${RUNNER_TEMP}/release.keystore" \
-              -alias xmemos-ephemeral -keyalg RSA -keysize 2048 -validity 365 \
-              -storepass xmemos-temp -keypass xmemos-temp \
-              -dname "CN=Xmemos CI, O=Xmemos, C=US"
-            echo "HAS_KEYSTORE=false" >> "$GITHUB_ENV"
+            echo "No manual ANDROID_KEYSTORE_BASE64 secret configured; using automatic persistent GitHub Draft Release keystore..."
+            DRAFT_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq "[.[] | select(.draft == true and .name == \"${DRAFT_NAME}\")][0] // empty")"
+            ASSET_ID=""
+            if [ -n "${DRAFT_JSON}" ]; then
+              ASSET_ID="$(printf '%s' "${DRAFT_JSON}" | jq -r ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .id" | head -n 1)"
+            fi
+
+            if [ -n "${ASSET_ID}" ]; then
+              echo "Found existing persistent Android signing keystore bundle (asset_id=${ASSET_ID}); downloading..."
+              gh api -H "Accept: application/octet-stream" "repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" > "${RUNNER_TEMP}/${BUNDLE_NAME}"
+              mkdir -p "${RUNNER_TEMP}/auto-signing"
+              tar -xzf "${RUNNER_TEMP}/${BUNDLE_NAME}" -C "${RUNNER_TEMP}/auto-signing"
+              cp "${RUNNER_TEMP}/auto-signing/release.keystore" "${RUNNER_TEMP}/release.keystore"
+              # shellcheck disable=SC1091
+              source "${RUNNER_TEMP}/auto-signing/signing.env"
+              echo "::add-mask::${SIGN_PASS}"
+              echo "::add-mask::${SIGN_KEY_PASS}"
+            else
+              echo "First-time automatic bootstrap: generating permanent 10,000-day RSA-4096 PKCS12 keystore..."
+              SIGN_ALIAS="xmemos-release"
+              SIGN_PASS="$(openssl rand -hex 24)"
+              SIGN_KEY_PASS="${SIGN_PASS}"
+              echo "::add-mask::${SIGN_PASS}"
+
+              keytool -genkeypair -v \
+                -storetype PKCS12 \
+                -keystore "${RUNNER_TEMP}/release.keystore" \
+                -alias "${SIGN_ALIAS}" \
+                -keyalg RSA -keysize 4096 -validity 10000 \
+                -storepass "${SIGN_PASS}" -keypass "${SIGN_KEY_PASS}" \
+                -dname "CN=Xmemos Release, O=Xmemos, C=ID"
+
+              mkdir -p "${RUNNER_TEMP}/auto-signing"
+              cp "${RUNNER_TEMP}/release.keystore" "${RUNNER_TEMP}/auto-signing/release.keystore"
+              cat << ENV_EOF > "${RUNNER_TEMP}/auto-signing/signing.env"
+          SIGN_ALIAS='${SIGN_ALIAS}'
+          SIGN_PASS='${SIGN_PASS}'
+          SIGN_KEY_PASS='${SIGN_KEY_PASS}'
+          ENV_EOF
+              tar -czf "${RUNNER_TEMP}/${BUNDLE_NAME}" -C "${RUNNER_TEMP}/auto-signing" release.keystore signing.env
+
+              RELEASE_ID=""
+              if [ -n "${DRAFT_JSON}" ]; then
+                RELEASE_ID="$(printf '%s' "${DRAFT_JSON}" | jq -r '.id')"
+              else
+                RELEASE_ID="$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases" \
+                  -f tag_name="${DRAFT_NAME}" \
+                  -f name="${DRAFT_NAME}" \
+                  -F draft=true \
+                  -F prerelease=false \
+                  -f body="DO NOT DELETE OR PUBLISH. Automatically managed by GitHub Actions to keep Android APK signing keys 100% consistent across every release update." \
+                  --jq '.id')"
+              fi
+
+              curl -fsSL -X POST \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Content-Type: application/gzip" \
+                --data-binary @"${RUNNER_TEMP}/${BUNDLE_NAME}" \
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${BUNDLE_NAME}" >/dev/null
+              echo "Saved permanent Android signing keystore to private Draft Release (id=${RELEASE_ID})."
+            fi
           fi
+
+          keytool -list -keystore "${RUNNER_TEMP}/release.keystore" \
+            -alias "${SIGN_ALIAS}" \
+            -storepass "${SIGN_PASS}" >/dev/null
+
+          {
+            echo "RESOLVED_SIGN_ALIAS=${SIGN_ALIAS}"
+            echo "RESOLVED_SIGN_PASS=${SIGN_PASS}"
+            echo "RESOLVED_SIGN_KEY_PASS=${SIGN_KEY_PASS}"
+            echo "HAS_KEYSTORE=true"
+          } >> "$GITHUB_ENV"
+          echo "Verified persistent Android signing keystore ready (alias=${SIGN_ALIAS})."
 
       - name: Build, zipalign, and deterministically sign Android APKs
         env:
@@ -198,9 +288,9 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           mkdir -p dist-release
-          SIGN_PASS="${ANDROID_KEYSTORE_PASSWORD:-xmemos-temp}"
-          SIGN_ALIAS="${ANDROID_KEY_ALIAS:-xmemos-ephemeral}"
-          SIGN_KEY_PASS="${ANDROID_KEY_PASSWORD:-xmemos-temp}"
+          SIGN_PASS="${RESOLVED_SIGN_PASS}"
+          SIGN_ALIAS="${RESOLVED_SIGN_ALIAS}"
+          SIGN_KEY_PASS="${RESOLVED_SIGN_KEY_PASS}"
 
           build_abi() {
             local abi_name="$1"
@@ -234,7 +324,8 @@ jobs:
               --out "${final_apk}" \
               "${aligned_apk}"
 
-            apksigner verify --verbose --print-certs "${final_apk}" > "dist-release/Xmemos-v${APP_VERSION}-SIGNING-CERT.txt"
+                        apksigner verify --verbose --print-certs "${final_apk}" > "dist-release/Xmemos-v${APP_VERSION}-SIGNING-CERT.txt"
+            aapt2 dump badging "${final_apk}" | grep -E "^package:" | tee /dev/stderr | grep -q "name='org.xmemos.app' versionCode='${ANDROID_VERSION_CODE}' versionName='${APP_VERSION}'" 
           }
 
           case "${{ inputs.target_abis }}" in
@@ -270,9 +361,9 @@ jobs:
           zipalign -p -f -v 4 "${RAW2}" "${RUNNER_TEMP}/aligned-pass2.apk"
           apksigner sign \
             --ks "${RUNNER_TEMP}/release.keystore" \
-            --ks-key-alias "${ANDROID_KEY_ALIAS:-xmemos-ephemeral}" \
-            --ks-pass "pass:${ANDROID_KEYSTORE_PASSWORD:-xmemos-temp}" \
-            --key-pass "pass:${ANDROID_KEY_PASSWORD:-xmemos-temp}" \
+            --ks-key-alias "${RESOLVED_SIGN_ALIAS}" \
+            --ks-pass "pass:${RESOLVED_SIGN_PASS}" \
+            --key-pass "pass:${RESOLVED_SIGN_KEY_PASS}" \
             --v1-signing-enabled false \
             --v2-signing-enabled true \
             --v3-signing-enabled true \

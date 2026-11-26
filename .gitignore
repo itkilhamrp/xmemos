@@ -16,6 +16,8 @@ src-tauri/gen/android/local.properties
 # Signing keys & local secrets
 *.jks
 *.keystore
+*.p12
+*.base64.txt
 keystore.properties
 .env
 .env.*

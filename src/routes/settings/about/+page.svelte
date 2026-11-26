@@ -54,7 +54,7 @@
 		</div>
 
 		<List strong inset class="!my-0 !mx-0">
-			<ListItem title="Application Version" after={info ? `v${info.appVersion}` : 'v2.7.32'} />
+			<ListItem title="Application Version" after={info ? `v${info.appVersion}` : 'v2.7.34'} />
 			<ListItem title={i18n.t('about.license')} after={info?.license ?? 'AGPL-3.0-or-later'} />
 			<ListItem title="Memos Schema Parity" after={info?.memosSchemaVersion ?? '0.24.0'} />
 			<ListItem title="SQLite Engine" after={info?.sqliteVersion ?? 'Bundled SQLite 3'} />

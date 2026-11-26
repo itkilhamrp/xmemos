@@ -13,6 +13,7 @@ All AI coding agents (Gemini, Claude, GPT, DeepSeek, Copilot, Cursor, Windsurf, 
 7. **100% GMS-Free & Full FOSS:** NEVER add `com.google.android.gms`, `com.google.firebase`, Play Services, or proprietary telemetry SDKs. Verify with `pnpm foss:check`.
 8. **AGPL-3.0-or-later Headers:** Every new source file must include the SPDX AGPLv3 header (`pnpm license:apply`).
 9. **Adaptive Platform Separation:** Always gate Android-only UI/APIs (`.nomedia`, `BiometricPrompt`) behind `supportsNomedia()` / `supportsAndroidBiometric()` and Desktop-only UI/APIs (window controls, native Save dialogs) behind `isDesktopTauri()` / `#[cfg(desktop)]`.
+10. **Automatic Persistent Android Release Signing & Monotonic `versionCode`:** NEVER replace `.github/workflows/android-release.yml`'s persistent signing flow (priority: optional `ANDROID_KEYSTORE_BASE64` secret → automatic permanent RSA-4096 PKCS12 keystore stored in the private GitHub Draft Release `xmemos-android-keystore-internal`) with an ephemeral per-run keystore, and NEVER remove the explicit `defaultConfig.versionCode` pinning or `aapt2 dump badging` check. Changing signing keys breaks Android in-place updates (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
 
 ## Command Reference
 
