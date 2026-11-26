@@ -5,6 +5,13 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.7] - 2026-11-27
+
+### Fixed
+- **CI `pnpm version:check` Flatpak AppStream MetaInfo Synchronization (`packaging/flatpak/org.xmemos.app.metainfo.xml`, `AGENTS.md`)**:
+  - Restored `packaging/flatpak/org.xmemos.app.metainfo.xml`'s `<releases>` block to the exact deterministic AppStream format enforced by `scripts/sync-version.ts --check` (single `<release version="2.9.7" date="2026-11-27">` referencing `CHANGELOG.md` via `<url type="details">`, with zero manual `<description>` text).
+  - Documented this strict single-source `<releases>` contract in `AGENTS.md` Invariant #18 to prevent future regressions.
+
 ## [2.9.6] - 2026-11-27
 
 ### Changed

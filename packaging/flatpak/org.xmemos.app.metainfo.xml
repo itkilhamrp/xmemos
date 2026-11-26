@@ -50,27 +50,7 @@
   </description>
   <releases>
     <!-- Auto-synced from package.json and CHANGELOG.md via `pnpm version:sync` -->
-    <release version="2.9.6" date="2026-11-27">
-      <description>
-        <p>Accelerated cold and warm startup across Android, GNU/Linux, Windows, and macOS with native Kotlin first-frame WebView tuning, zero-subprocess Win32 advapi32 WebView2 detection, native Linux NVIDIA/Wayland DE hints, Frame-0 memo hydration with instant Frame-1 window reveal, and strict bounded LRU/TTL cache pruning (48 MiB thumbs, 128 KB SWR snapshots).</p>
-      </description>
-    </release>
-    <release version="2.9.5" date="2026-11-27">
-      <description>
-        <p>Eliminated Android bottom tabbar slider jitter by removing inline Svelte transform overrides on the active Liquid Glass pill, adding touch-action: none and GPU layer containment, and adding silky PowerPoint-style directional slide page transitions via SvelteKit onNavigate and the View Transitions API with a pinned static navbar.</p>
-      </description>
-    </release>
-    <release version="2.9.4" date="2026-11-27">
-      <description>
-        <p>Added smart, crash-proof, lightweight automatic video compression using hardware-accelerated Jetpack Media3 Transformer on Android (720p max short side, adaptive bitrate, 90s watchdog, anti-bloat guard) and optional system FFmpeg on Desktop, running asynchronously off the UI thread with zero-loss passthrough fallback.</p>
-      </description>
-    </release>
-    <release version="2.9.3" date="2026-11-27">
-      <description>
-        <p>Eliminated duplicate backup saves in backups/ and cleaned staged temp exports on cancel, upgraded Rust and WebView static media compression with live per-file upload progress indicators, and added a persistent HOST/ADMIN-only Upload Size Limit setting enforced on both frontend and backend.</p>
-      </description>
-    </release>
-    <release version="2.9.2" date="2026-11-27">
+    <release version="2.9.7" date="2026-11-27">
       <url type="details">https://github.com/xmemos/xmemos/blob/main/CHANGELOG.md</url>
     </release>
   </releases>
