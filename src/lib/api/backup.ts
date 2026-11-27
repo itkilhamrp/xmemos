@@ -44,8 +44,8 @@ export const backupApi = {
 			result
 		}),
 
-	listHistory: (): Promise<BackupHistoryEntry[]> =>
-		callIpc<BackupHistoryEntry[]>('backup_list_history'),
+	listHistory: (limit = 12, offset = 0): Promise<BackupHistoryEntry[]> =>
+		callIpc<BackupHistoryEntry[]>('backup_list_history', { limit, offset }),
 
 	previewImport: (sourcePath: string): Promise<ImportPreview> =>
 		callIpc<ImportPreview>('backup_preview_import', { sourcePath }),

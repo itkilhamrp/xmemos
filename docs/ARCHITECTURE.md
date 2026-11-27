@@ -207,4 +207,13 @@ Modeled after Official Memos 26.10/26.11 (`usememos.com/docs/usage/memos` & `dem
 
 ## v2.9.15 HOST/ADMIN-Only Local App Lock Enforcement
 - **Backend RBAC Defense-in-Depth**: `auth_set_lock_config` (`src-tauri/src/commands/auth.rs`) and `system_set_local_pref` for `require_password_after_sign_out` (`src-tauri/src/commands/system.rs`) require `require_admin_or_host(&state)?`.
-- **Frontend Read-Only Guard**: `src/routes/settings/account/+page.svelte` disables all Local App Lock controls and hides Save/Clear actions when `!authState.isAdminOrHost`, displaying `account.lockAdminOnly`.
+- **Frontend Clean Role Gate (`v2.9.16`)**: `src/routes/settings/account/+page.svelte` renders the entire Local App Lock card exclusively for `HOST`/`ADMIN` (`{#if canManageLocalLock}`) with no warning banner, matching professional app UX.
+
+## v2.9.17 Smart Bounded Backup History & Lazy Loading
+- **Zero-Bloat Retention (`src-tauri/src/service/backup.rs`)**: `prune_backup_history()` runs on every recorded export and opportunistically on page-0 reads, capping `backup_history` in `local.db` at the newest `100` entries and pruning entries older than `180` days beyond the newest `20`.
+- **Paginated Lazy Loading**: `backup_list_history(limit, offset)` serves 12 entries per page to `settings/storage/+page.svelte` and `BackupRestorePanel.svelte` via `IntersectionObserver` without per-row download buttons.
+
+## v2.9.18 Ultra-Instant Android WebView Startup & Smart Cache Ceiling
+- **Official Jetpack WebKit `startUpWebView()`**: `XmemosEarlyStartupProvider` invokes `WebViewCompat.startUpWebView()` (`androidx.webkit:webkit:1.16.0`) on a dedicated background executor prior to `MainActivity.onCreate()`.
+- **Multi-Tier Smart Cache**: `XmemosStartupOptimizer` uses a `ScheduledExecutorService` (2s post-load) to enforce 6h temp TTL (`video_opt`, `export_tmp`), 48 MiB `thumbs` LRU, and a 160 MiB `cacheDir` safety ceiling.
+- **Zero Frame-0 SQLite Contention**: `state.rs` delays `ensure_fts_index_ready`/`PRAGMA optimize` by 600ms and mobile `+page.svelte` defers `loadSidebarMetadata()` by 120ms until `loadTimeline()` completes.

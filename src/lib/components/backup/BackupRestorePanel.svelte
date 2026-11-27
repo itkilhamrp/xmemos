@@ -27,6 +27,7 @@
 		DialogButton,
 		List,
 		ListItem,
+		Preloader,
 		Segmented,
 		SegmentedButton
 	} from 'konsta/svelte';
@@ -51,10 +52,38 @@
 
 	interface Props {
 		history: BackupHistoryEntry[];
+		hasMoreHistory?: boolean;
+		loadingMoreHistory?: boolean;
+		onLoadMore?: () => void;
 		onChanged?: () => void;
 	}
 
-	let { history, onChanged }: Props = $props();
+	let {
+		history,
+		hasMoreHistory = false,
+		loadingMoreHistory = false,
+		onLoadMore,
+		onChanged
+	}: Props = $props();
+
+	let historySentinel = $state<HTMLDivElement | null>(null);
+
+	$effect(() => {
+		const el = historySentinel;
+		if (!el || !hasMoreHistory || !onLoadMore || typeof IntersectionObserver === 'undefined') {
+			return;
+		}
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting) && !loadingMoreHistory) {
+					onLoadMore();
+				}
+			},
+			{ rootMargin: '160px 0px' }
+		);
+		observer.observe(el);
+		return () => observer.disconnect();
+	});
 
 	let busy = $state(false);
 	let importPreview = $state<ImportPreview | null>(null);
@@ -73,11 +102,6 @@
 			selectedScope = authState.isAdminOrHost ? 'ALL_USERS' : 'ACTIVE_USER';
 		}
 	});
-
-	function isLocalCopyablePath(path: string): boolean {
-		if (!path || path.startsWith('content://')) return false;
-		return path.includes('/backups/') || path.includes('\\backups\\');
-	}
 
 	async function handleExportDb(): Promise<void> {
 		busy = true;
@@ -147,24 +171,6 @@
 			if (stagedPath && !finalized) {
 				await backupApi.finalizeExport(stagedPath, null, null).catch(() => {});
 			}
-			busy = false;
-		}
-	}
-
-	async function handleDownloadHistoryEntry(entry: BackupHistoryEntry): Promise<void> {
-		busy = true;
-		try {
-			const mime = entry.mode === 'FULL_BUNDLE' ? 'application/zip' : 'application/x-sqlite3';
-			const saved = await backupApi.saveToSaf(entry.path, entry.filename, mime);
-			if (!saved.cancelled) {
-				const targetName = saved.savedUri
-					? formatSavedLabel(saved.savedUri, entry.filename)
-					: entry.filename;
-				toastState.show(`Saved backup copy: ${targetName}`, 'success');
-			}
-		} catch (err) {
-			toastState.show(err instanceof Error ? err.message : String(err), 'error');
-		} finally {
 			busy = false;
 		}
 	}
@@ -351,24 +357,28 @@
 						title={entry.filename}
 						subtitle={`${entry.mode === 'FULL_BUNDLE' ? 'Full Bundle' : 'DB Only'} • ${formatBytes(entry.sizeBytes)} • ${formatFullTimestamp(entry.createdTs)}`}
 						footer={`SHA-256: ${entry.sha256.slice(0, 16)}…`}
-					>
-						{#snippet after()}
-							{#if isLocalCopyablePath(entry.path)}
-								<button
-									type="button"
-									aria-label="Save {entry.filename}"
-									title="Save {entry.filename}"
-									disabled={busy}
-									class="flex h-8 w-8 items-center justify-center rounded-full xm-text-accent transition-colors hover:bg-[var(--xm-accent-soft)] disabled:opacity-50"
-									onclick={() => handleDownloadHistoryEntry(entry)}
-								>
-									<Download class="h-4 w-4" aria-hidden="true" />
-								</button>
-							{/if}
-						{/snippet}
-					</ListItem>
+					/>
 				{/each}
 			</List>
+			{#if hasMoreHistory}
+				<div
+					bind:this={historySentinel}
+					class="flex items-center justify-center py-3"
+					aria-live="polite"
+				>
+					{#if loadingMoreHistory}
+						<Preloader class="h-5 w-5" />
+					{:else if onLoadMore}
+						<button
+							type="button"
+							class="rounded-full border border-[var(--xm-divider)] px-3.5 py-1 text-xs font-medium xm-text-secondary transition-colors hover:bg-[var(--xm-surface-subtle)]"
+							onclick={() => onLoadMore()}
+						>
+							{i18n.t('backup.loadMore')}
+						</button>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

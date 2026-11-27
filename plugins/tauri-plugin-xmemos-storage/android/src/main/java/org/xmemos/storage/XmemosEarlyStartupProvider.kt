@@ -24,23 +24,33 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
-import android.os.Build
-import android.webkit.WebView
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewOutcomeReceiver
+import androidx.webkit.WebViewStartUpConfig
+import androidx.webkit.WebViewStartUpResult
+import androidx.webkit.WebViewStartupException
 import java.io.File
 import java.util.concurrent.Executors
 
 /**
  * Ultra-lightweight (<1ms on Main Thread) pre-Activity ContentProvider that runs before
- * MainActivity.onCreate(). Offloads two slow cold-start I/O steps to a background thread:
+ * MainActivity.onCreate(). Offloads two critical cold-start bottlenecks off the UI thread:
  * 1. Pre-resolves and caches the Android media root directory (`externalMediaDirs`) so Rust's
  *    `getMediaRoot()` IPC returns in 0ms without blocking on storage I/O.
- * 2. Touches `WebView.getCurrentWebViewPackage()` (API 26+) off the UI thread to warm the
- *    OS page cache for the system Chromium WebView package before Activity inflation.
+ * 2. Triggers official Jetpack WebKit `WebViewCompat.startUpWebView()` (`androidx.webkit:webkit:1.16.0`)
+ *    on a dedicated background executor so Chromium's heavy native initialization runs in parallel
+ *    before `MainActivity` inflates the Tauri WebView.
  */
 class XmemosEarlyStartupProvider : ContentProvider() {
     companion object {
         @Volatile
         internal var cachedMediaRoot: Pair<File, Boolean>? = null
+
+        private fun ensureDir(dir: File) {
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+        }
 
         @Suppress("DEPRECATION")
         internal fun resolveAndCacheMediaRoot(context: Context): Pair<File, Boolean> {
@@ -52,9 +62,9 @@ class XmemosEarlyStartupProvider : ContentProvider() {
                 val fallback = context.getExternalFilesDir(null) ?: context.filesDir
                 Pair(fallback, false)
             }
-            File(result.first, "assets/avatars").mkdirs()
-            File(result.first, "backups").mkdirs()
-            File(result.first, "temp").mkdirs()
+            ensureDir(File(result.first, "assets/avatars"))
+            ensureDir(File(result.first, "backups"))
+            ensureDir(File(result.first, "temp"))
             cachedMediaRoot = result
             return result
         }
@@ -62,21 +72,43 @@ class XmemosEarlyStartupProvider : ContentProvider() {
 
     override fun onCreate(): Boolean {
         val appContext = context?.applicationContext ?: return true
-        val executor = Executors.newSingleThreadExecutor { runnable ->
+
+        // 1. Official Jetpack WebKit asynchronous WebView startup (Android Developers Oct 2026)
+        runCatching {
+            val webViewExecutor = Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "xmemos-webview-init").apply {
+                    isDaemon = true
+                }
+            }
+            val startUpConfig = WebViewStartUpConfig.Builder(webViewExecutor).build()
+            WebViewCompat.startUpWebView(
+                appContext,
+                startUpConfig,
+                object : WebViewOutcomeReceiver<WebViewStartUpResult, WebViewStartupException> {
+                    override fun onResult(result: WebViewStartUpResult) {
+                        webViewExecutor.shutdown()
+                    }
+
+                    override fun onError(error: WebViewStartupException) {
+                        webViewExecutor.shutdown()
+                    }
+                }
+            )
+        }
+
+        // 2. Pre-warm Android MediaRoot off the UI thread
+        val ioExecutor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "xmemos-early-prewarm").apply {
                 isDaemon = true
             }
         }
-        executor.execute {
+        ioExecutor.execute {
             try {
                 resolveAndCacheMediaRoot(appContext)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    runCatching { WebView.getCurrentWebViewPackage() }
-                }
             } catch (_: Throwable) {
                 // Non-fatal prewarm
             } finally {
-                executor.shutdown()
+                ioExecutor.shutdown()
             }
         }
         return true

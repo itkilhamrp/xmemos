@@ -34,13 +34,13 @@ Xmemos is engineered to produce deterministic, auditable, and supply-chain-harde
 ./scripts/verify-repro.sh aarch64
 
 # Verify SHA-256 checksums of any downloaded platform package
-sha256sum -c --ignore-missing Xmemos-v2.9.15-SHA256SUMS.txt
+sha256sum -c --ignore-missing Xmemos-v2.9.18-SHA256SUMS.txt
 
 # Verify Android APK signature & certificate fingerprints
-apksigner verify --verbose --print-certs Xmemos-v2.9.15-android-arm64-v8a-release.apk
+apksigner verify --verbose --print-certs Xmemos-v2.9.18-android-arm64-v8a-release.apk
 
 # Verify GitHub SLSA Build Provenance attestation (public repositories)
-gh attestation verify Xmemos-v2.9.15-linux-x86_64.AppImage --repo <OWNER>/<REPO>
+gh attestation verify Xmemos-v2.9.18-linux-x86_64.AppImage --repo <OWNER>/<REPO>
 ```
 
 ## Automatic Persistent Android Release Signing (Seamless In-Place Updates)

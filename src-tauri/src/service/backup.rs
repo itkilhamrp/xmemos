@@ -307,6 +307,39 @@ fn collect_scoped_assets(
     }
 }
 
+/// Maximum retained backup history metadata rows in `local.db` (prevents unbounded growth even after thousands of backups).
+const MAX_BACKUP_HISTORY_ROWS: i64 = 100;
+/// Minimum newest backup history entries always preserved regardless of age.
+const MIN_RETAINED_BACKUP_HISTORY_ROWS: i64 = 20;
+/// Age threshold (180 days) after which excess backup history rows beyond `MIN_RETAINED_BACKUP_HISTORY_ROWS` are pruned.
+const BACKUP_HISTORY_RETENTION_SECS: i64 = 180 * 24 * 60 * 60;
+
+fn prune_backup_history(conn: &rusqlite::Connection, now_ts: i64) -> AppResult<()> {
+    let cutoff_ts = now_ts.saturating_sub(BACKUP_HISTORY_RETENTION_SECS);
+    // 1. Remove very old rows (>180 days) while always preserving at least the newest 20 entries
+    conn.execute(
+        "DELETE FROM backup_history
+         WHERE created_ts < ?1
+           AND id NOT IN (
+             SELECT id FROM backup_history
+             ORDER BY created_ts DESC, id DESC
+             LIMIT ?2
+           )",
+        params![cutoff_ts, MIN_RETAINED_BACKUP_HISTORY_ROWS],
+    )?;
+    // 2. Enforce strict hard cap of newest 100 rows so local.db never bloats after thousands of backups
+    conn.execute(
+        "DELETE FROM backup_history
+         WHERE id NOT IN (
+           SELECT id FROM backup_history
+           ORDER BY created_ts DESC, id DESC
+           LIMIT ?1
+         )",
+        params![MAX_BACKUP_HISTORY_ROWS],
+    )?;
+    Ok(())
+}
+
 fn record_backup_history(state: &AppState, result: &ExportResult) -> AppResult<()> {
     let local = state.lock_local_db()?;
     let now = chrono::Utc::now().timestamp();
@@ -322,17 +355,37 @@ fn record_backup_history(state: &AppState, result: &ExportResult) -> AppResult<(
             now
         ],
     )?;
+    prune_backup_history(&local, now)?;
     Ok(())
 }
 
-pub fn list_backup_history(state: &AppState) -> AppResult<Vec<BackupHistoryEntry>> {
+pub fn list_backup_history(
+    state: &AppState,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> AppResult<Vec<BackupHistoryEntry>> {
     let local = state.lock_local_db()?;
+    let safe_limit = i64::from(limit.unwrap_or(12).clamp(1, 50));
+    let safe_offset = i64::from(offset.unwrap_or(0));
+
+    // Self-heal legacy bloated backup_history tables on first page read
+    if safe_offset == 0 {
+        let count: i64 = local
+            .query_row("SELECT COUNT(*) FROM backup_history", [], |r| r.get(0))
+            .unwrap_or(0);
+        if count > MAX_BACKUP_HISTORY_ROWS {
+            let _ = prune_backup_history(&local, chrono::Utc::now().timestamp());
+        }
+    }
+
     let mut stmt = local.prepare(
         "SELECT id, mode, filename, path, size_bytes, sha256, created_ts
-         FROM backup_history ORDER BY created_ts DESC, id DESC LIMIT 50",
+         FROM backup_history
+         ORDER BY created_ts DESC, id DESC
+         LIMIT ?1 OFFSET ?2",
     )?;
     let rows = stmt
-        .query_map([], |r| {
+        .query_map(params![safe_limit, safe_offset], |r| {
             Ok(BackupHistoryEntry {
                 id: r.get(0)?,
                 mode: r.get(1)?,

@@ -144,6 +144,8 @@ impl AppState {
             }
         }
 
+        // Yield briefly so Frame-0 frontend auth & memo_list IPC queries never contend on memos_conn
+        std::thread::sleep(std::time::Duration::from_millis(600));
         let _ = crate::service::search::ensure_fts_index_ready(self);
         let _ = self.with_memos_db(|conn| {
             let _ = conn.execute_batch("PRAGMA optimize;");

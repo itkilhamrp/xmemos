@@ -117,9 +117,13 @@ pub fn backup_finalize_export(
 }
 
 #[tauri::command]
-pub fn backup_list_history(state: State<'_, AppState>) -> AppResult<Vec<BackupHistoryEntry>> {
+pub fn backup_list_history(
+    state: State<'_, AppState>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> AppResult<Vec<BackupHistoryEntry>> {
     let _ = require_authenticated_user(&state)?;
-    backup::list_backup_history(&state)
+    backup::list_backup_history(&state, limit, offset)
 }
 
 #[tauri::command]

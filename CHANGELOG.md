@@ -5,6 +5,28 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.18] - 2026-11-28
+
+### Changed
+- **Ultra-Instant Android Cold-Start & Smart Cache Ceiling (`XmemosEarlyStartupProvider.kt`, `XmemosStartupOptimizer.kt`, `build.gradle.kts`, `src-tauri/src/state.rs`, `src/routes/+page.svelte`)**:
+  - Upgraded `XmemosEarlyStartupProvider` to the official Jetpack WebKit `WebViewCompat.startUpWebView()` API (`androidx.webkit:webkit:1.16.0` per Android Developers' Oct 2026 WebView startup guide), moving Chromium native initialization off the UI thread before `MainActivity` inflates the Tauri WebView.
+  - Replaced `Thread.sleep` in `XmemosStartupOptimizer` with a zero-sleep `ScheduledExecutorService` and added a smart `160 MiB` total `cacheDir` ceiling alongside the `48 MiB` `thumbs` LRU cap and 6-hour `video_opt`/`export_tmp` TTL pruning.
+  - Yielded `run_background_startup_maintenance()` (`PRAGMA optimize` / FTS5 parity check) by 600ms in `src-tauri/src/state.rs` and deferred off-screen mobile `loadSidebarMetadata()` in `src/routes/+page.svelte` so Frame-0 timeline queries run with zero SQLite contention.
+
+## [2.9.17] - 2026-11-28
+
+### Changed
+- **Smart Auto-Pruning & Lazy-Loaded Backup History (`src-tauri/src/service/backup.rs`, `src-tauri/src/commands/backup.rs`, `src/lib/api/backup.ts`, `src/routes/settings/storage/+page.svelte`, `src/lib/components/backup/BackupRestorePanel.svelte`)**:
+  - Removed the redundant per-row download button from the Backup History list for a cleaner, clutter-free UI.
+  - Added true paginated lazy loading (`limit` & `offset`, 12 entries per page) backed by `IntersectionObserver` auto-loading in `BackupRestorePanel.svelte`.
+  - Added automatic `prune_backup_history()` retention in `local.db` (hard cap at the newest 100 entries + 180-day age pruning while preserving at least the newest 20 records, plus automatic self-healing on first read) so app data size stays tiny even after thousands of backups without ever touching user-exported files.
+
+## [2.9.16] - 2026-11-28
+
+### Changed
+- **Clean HOST/ADMIN-Only Local App Lock Card (`src/routes/settings/account/+page.svelte`, `src/lib/i18n/locales/*.ts`)**:
+  - Hid the entire Local App Lock settings card (6-digit PIN, Android BiometricPrompt, Require Unlock on Account Switch, and Require Password After Sign Out) cleanly for non-`HOST`/`ADMIN` accounts (`{#if canManageLocalLock}`) without adding a noisy permission warning banner, while preserving full backend Rust `require_admin_or_host` enforcement on `auth_set_lock_config` and `system_set_local_pref`.
+
 ## [2.9.15] - 2026-11-28
 
 ### Security & Changed

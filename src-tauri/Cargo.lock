@@ -5151,7 +5151,7 @@ dependencies = [
 
 [[package]]
 name = "xmemos"
-version = "2.9.15"
+version = "2.9.18"
 dependencies = [
  "base64 0.23.1",
  "bcrypt",

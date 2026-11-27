@@ -60,10 +60,19 @@
 	async function reload(reset = true): Promise<void> {
 		const uid = authState.currentUser?.id ?? null;
 		if (reset) {
-			await Promise.all([
-				memosState.loadTimeline(uid, true),
-				memosState.loadSidebarMetadata(uid)
-			]);
+			const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
+			if (isMobileViewport) {
+				// On Android/Mobile Frame 0, prioritize timeline SQLite query with zero sidebar contention
+				await memosState.loadTimeline(uid, true);
+				setTimeout(() => {
+					void memosState.loadSidebarMetadata(uid);
+				}, 120);
+			} else {
+				await Promise.all([
+					memosState.loadTimeline(uid, true),
+					memosState.loadSidebarMetadata(uid)
+				]);
+			}
 		} else {
 			await memosState.loadTimeline(uid, false);
 		}

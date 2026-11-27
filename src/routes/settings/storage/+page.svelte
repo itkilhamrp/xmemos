@@ -38,19 +38,46 @@
 	import AppShell from '#lib/components/layout/AppShell.svelte';
 	import BackupRestorePanel from '#lib/components/backup/BackupRestorePanel.svelte';
 
+	const HISTORY_PAGE_SIZE = 12;
+
 	let breakdown = $state<StorageBreakdown | null>(null);
 	let history = $state<BackupHistoryEntry[]>([]);
+	let hasMoreHistory = $state(false);
+	let loadingMoreHistory = $state(false);
 	let nomedia = $state(false);
 
 	async function load(): Promise<void> {
 		if (!authState.isAuthenticated) return;
 		const [b, h] = await Promise.all([
 			resourceApi.storageBreakdown(),
-			backupApi.listHistory()
+			backupApi.listHistory(HISTORY_PAGE_SIZE, 0)
 		]);
 		breakdown = b;
 		history = h;
+		hasMoreHistory = h.length >= HISTORY_PAGE_SIZE;
 		nomedia = b.nomediaEnabled;
+	}
+
+	async function loadMoreHistory(): Promise<void> {
+		if (!authState.isAuthenticated || loadingMoreHistory || !hasMoreHistory) return;
+		loadingMoreHistory = true;
+		try {
+			const next = await backupApi.listHistory(HISTORY_PAGE_SIZE, history.length);
+			if (next.length === 0) {
+				hasMoreHistory = false;
+				return;
+			}
+			const seen = new Set(history.map((item) => item.id));
+			const appended = next.filter((item) => !seen.has(item.id));
+			if (appended.length > 0) {
+				history = [...history, ...appended];
+			}
+			hasMoreHistory = next.length >= HISTORY_PAGE_SIZE;
+		} catch (err) {
+			toastState.show(err instanceof Error ? err.message : String(err), 'error');
+		} finally {
+			loadingMoreHistory = false;
+		}
 	}
 
 	async function toggleNomedia(): Promise<void> {
@@ -208,7 +235,13 @@
 				{/if}
 			{/if}
 
-			<BackupRestorePanel {history} onChanged={() => void load()} />
+			<BackupRestorePanel
+				{history}
+				{hasMoreHistory}
+				{loadingMoreHistory}
+				onLoadMore={() => void loadMoreHistory()}
+				onChanged={() => void load()}
+			/>
 		</div>
 	{/if}
 </AppShell>

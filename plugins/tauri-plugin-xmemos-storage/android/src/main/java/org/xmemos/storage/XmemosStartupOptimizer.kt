@@ -28,19 +28,22 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Native Kotlin first-frame startup optimizer for Android:
- * 1. Matches the native Activity window background to Light/Dark mode before first WebView paint
+ * Native Kotlin first-frame startup optimizer and smart cache manager for Android:
+ * 1. Matches the native Activity window & WebView background to Light/Dark mode before first paint
  *    (eliminating white/black cold-start flashes).
- * 2. Tunes Android WebView caching & GPU pre-rasterization (`LOAD_DEFAULT`, `offscreenPreRaster`,
- *    hardware layer) for instant warm/cold reopen.
- * 3. Runs a lightweight background bounded-cache pruner (48 MiB LRU cap on `cacheDir/thumbs` and
- *    6-hour TTL on ephemeral `video_opt`/`export_tmp` staging folders) without blocking the UI thread.
+ * 2. Tunes Android WebView caching & GPU pre-rasterization (`LOAD_DEFAULT`, `offscreenPreRaster`)
+ *    for instant warm/cold reopen.
+ * 3. Uses a zero-sleep `ScheduledExecutorService` after first-frame commit (2000ms delay) to run
+ *    smart bounded cache pruning (6h TTL on `video_opt`/`export_tmp`, 48 MiB LRU cap on `thumbs`,
+ *    and a 160 MiB safety ceiling across `cacheDir` HTTP/code caches so storage never bloats).
  */
 internal object XmemosStartupOptimizer {
     private const val MAX_THUMBS_CACHE_BYTES = 48L * 1024L * 1024L
+    private const val MAX_TOTAL_CACHE_BYTES = 160L * 1024L * 1024L
     private const val STALE_TEMP_AGE_MS = 6L * 60L * 60L * 1000L
     private val maintenanceScheduled = AtomicBoolean(false)
 
@@ -67,25 +70,51 @@ internal object XmemosStartupOptimizer {
 
     private fun scheduleBoundedCachePruning(appContext: Context) {
         if (!maintenanceScheduled.compareAndSet(false, true)) return
-        val executor = Executors.newSingleThreadExecutor { runnable ->
+        val scheduler = Executors.newSingleThreadScheduledExecutor { runnable ->
             Thread(runnable, "xmemos-cache-prune").apply {
                 isDaemon = true
                 priority = Thread.MIN_PRIORITY
             }
         }
-        executor.execute {
-            try {
-                // Yield briefly so first-frame rendering gets 100% of CPU & I/O bandwidth
-                Thread.sleep(1500L)
-                val cacheDir = appContext.cacheDir ?: return@execute
-                pruneStaleDir(File(cacheDir, "video_opt"), STALE_TEMP_AGE_MS)
-                pruneStaleDir(File(cacheDir, "export_tmp"), STALE_TEMP_AGE_MS)
-                pruneLruDir(File(cacheDir, "thumbs"), MAX_THUMBS_CACHE_BYTES)
-            } catch (_: Throwable) {
-                // Non-fatal background cache maintenance
-            } finally {
-                executor.shutdown()
-            }
+        scheduler.schedule(
+            {
+                try {
+                    val cacheDir = appContext.cacheDir ?: return@schedule
+                    pruneStaleDir(File(cacheDir, "video_opt"), STALE_TEMP_AGE_MS)
+                    pruneStaleDir(File(cacheDir, "export_tmp"), STALE_TEMP_AGE_MS)
+                    pruneLruDir(File(cacheDir, "thumbs"), MAX_THUMBS_CACHE_BYTES)
+                    enforceTotalCacheCeiling(cacheDir, MAX_TOTAL_CACHE_BYTES)
+                } catch (_: Throwable) {
+                    // Non-fatal background cache maintenance
+                } finally {
+                    scheduler.shutdown()
+                }
+            },
+            2000L,
+            TimeUnit.MILLISECONDS
+        )
+    }
+
+    private fun dirSize(dir: File): Long {
+        if (!dir.exists()) return 0L
+        var total = 0L
+        dir.walkTopDown().forEach { f ->
+            if (f.isFile) total += f.length()
+        }
+        return total
+    }
+
+    private fun enforceTotalCacheCeiling(cacheDir: File, maxBytes: Long) {
+        val total = dirSize(cacheDir)
+        if (total <= maxBytes) return
+        // Trim oldest WebView HTTP cache files first when total app cache exceeds 160 MiB
+        val webViewHttpCache = File(cacheDir, "WebView/Default/HTTP Cache")
+        if (webViewHttpCache.exists()) {
+            pruneLruDir(webViewHttpCache, 40L * 1024L * 1024L)
+        }
+        val remaining = dirSize(cacheDir)
+        if (remaining > maxBytes) {
+            pruneLruDir(File(cacheDir, "thumbs"), 24L * 1024L * 1024L)
         }
     }
 
@@ -103,7 +132,7 @@ internal object XmemosStartupOptimizer {
 
     private fun pruneLruDir(dir: File, maxBytes: Long) {
         if (!dir.exists() || !dir.isDirectory) return
-        val files = dir.listFiles()?.filter { it.isFile } ?: return
+        val files = dir.walkTopDown().filter { it.isFile }.toList()
         var total = files.sumOf { it.length() }
         if (total <= maxBytes) return
         val sortedOldestFirst = files.sortedBy { it.lastModified() }
