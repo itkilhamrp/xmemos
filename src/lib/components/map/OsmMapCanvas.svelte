@@ -225,7 +225,7 @@
 				zoom: initialZoom,
 				minZoom: 2,
 				maxZoom: 18,
-				zoomSnap: 0.25,
+				zoomSnap: 0,
 				zoomDelta: 1,
 				wheelPxPerZoomLevel: 90,
 				zoomControl: false,
@@ -253,9 +253,14 @@
 			L = leaflet;
 			map = mapInst;
 
+			let markerZoomTimer: ReturnType<typeof setTimeout> | null = null;
 			mapInst.on('zoomend', () => {
-				zoomLevel = mapInst.getZoom();
-				renderMarkers();
+				zoomLevel = Math.round(mapInst.getZoom() * 10) / 10;
+				if (markerZoomTimer) clearTimeout(markerZoomTimer);
+				markerZoomTimer = setTimeout(() => {
+					markerZoomTimer = null;
+					if (!destroyed && map === mapInst) renderMarkers();
+				}, 50);
 			});
 
 			mapInst.on('click', (ev: LeafletNS.LeafletMouseEvent) => {

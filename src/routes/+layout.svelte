@@ -66,9 +66,13 @@
 		memosState.hydrateSnapshot(authState.currentUser.id);
 	}
 
-	// Zero-snapshot, zero-input-blocking GPU directional slide transition (PowerPoint-style push)
-	// Runs purely on transform/opacity compositor without Android WebView startViewTransition bitmap stalls.
-	let routeStageEl = $state<HTMLDivElement | null>(null);
+	// Remove inline boot shell synchronously as soon as SvelteKit hydrates
+	if (typeof document !== 'undefined') {
+		document.getElementById('xm-boot-shell')?.remove();
+	}
+
+	// Zero-wrapper, zero-snapshot GPU directional slide transition applied transiently to .k-ios-page
+	// (Never wraps {@render children()} in a transformed div, which collapses Konsta <Page> height to 0px!)
 	let pendingSlideDir: NavSlideDirection = 'none';
 	let slideCleanTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -82,20 +86,21 @@
 		return () => {
 			const dir = pendingSlideDir;
 			pendingSlideDir = 'none';
-			if (dir === 'none' || !routeStageEl) return;
+			if (dir === 'none' || typeof document === 'undefined') return;
 			if (slideCleanTimer) {
 				clearTimeout(slideCleanTimer);
 				slideCleanTimer = null;
 			}
-			const el = routeStageEl;
-			el.classList.remove('xm-slide-forward', 'xm-slide-backward');
-			// Restart keyframe cleanly on next frame without stalling navigation
 			requestAnimationFrame(() => {
-				el.classList.add(dir === 'forward' ? 'xm-slide-forward' : 'xm-slide-backward');
+				const pageEl = document.querySelector<HTMLElement>('.k-ios-page');
+				if (!pageEl) return;
+				pageEl.classList.remove('xm-slide-forward', 'xm-slide-backward');
+				const cls = dir === 'forward' ? 'xm-slide-forward' : 'xm-slide-backward';
+				pageEl.classList.add(cls);
 				slideCleanTimer = setTimeout(() => {
-					el.classList.remove('xm-slide-forward', 'xm-slide-backward');
+					pageEl.classList.remove('xm-slide-forward', 'xm-slide-backward');
 					slideCleanTimer = null;
-				}, 190);
+				}, 185);
 			});
 		};
 	});
@@ -441,9 +446,7 @@
 
 <!-- Konsta UI v5 iOS theme: dark={true} enables dark: variants controlled by <html class="dark"> -->
 <App theme="ios" dark={true} safeAreas>
-	<div bind:this={routeStageEl} class="xm-route-stage">
-		{@render children()}
-	</div>
+	{@render children()}
 
 	{#if !isStickyRoute}
 		<!-- Persistent mobile Tabbar mounted once at root for smooth native iOS slider transitions -->

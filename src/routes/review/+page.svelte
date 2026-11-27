@@ -20,7 +20,7 @@
 -->
 
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button, Segmented, SegmentedButton } from 'konsta/svelte';
 	import { CalendarDays, Plus, Shuffle, X } from 'lucide-svelte';
@@ -180,30 +180,32 @@
 
 	$effect(() => {
 		const uid = authState.currentUser?.id ?? null;
-		const seq = ++loadSeq;
-		const cached = tabCacheState.getReview(uid);
-		if (cached && allMemos.length === 0) {
-			allMemos = cached;
-			if (!randomPick) pickRandom();
-			loading = false;
-		} else if (allMemos.length === 0) {
-			loading = true;
-		}
-		void memoApi
-			.list({
-				creatorId: uid,
-				rowStatus: 'NORMAL',
-				limit: 500
-			})
-			.then((memos) => {
-				if (seq !== loadSeq) return;
-				allMemos = memos;
-				tabCacheState.setReview(uid, memos);
+		untrack(() => {
+			const seq = ++loadSeq;
+			const cached = tabCacheState.getReview(uid);
+			if (cached && allMemos.length === 0) {
+				allMemos = cached;
 				if (!randomPick) pickRandom();
-			})
-			.finally(() => {
-				if (seq === loadSeq) loading = false;
-			});
+				loading = false;
+			} else if (allMemos.length === 0) {
+				loading = true;
+			}
+			void memoApi
+				.list({
+					creatorId: uid,
+					rowStatus: 'NORMAL',
+					limit: 500
+				})
+				.then((memos) => {
+					if (seq !== loadSeq) return;
+					allMemos = memos;
+					tabCacheState.setReview(uid, memos);
+					if (!randomPick) pickRandom();
+				})
+				.finally(() => {
+					if (seq === loadSeq) loading = false;
+				});
+		});
 	});
 </script>
 

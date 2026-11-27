@@ -24,7 +24,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
-import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
 import java.io.File
@@ -61,7 +60,6 @@ internal object XmemosStartupOptimizer {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 settings.offscreenPreRaster = true
             }
-            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         }
 
         scheduleBoundedCachePruning(activity.applicationContext)

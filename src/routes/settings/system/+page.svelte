@@ -40,15 +40,19 @@
 	let canManageSystem = $derived(authState.isAdminOrHost);
 
 	onMount(async () => {
-		const settings = await systemApi.listSettings();
-		disallowReg = settings.some((s) => s.name === 'disallow-user-registration' && s.value === 'true');
-		const uploadSetting = settings.find((s) => s.name === 'max-upload-size-mb');
-		if (uploadSetting) {
-			const parsed = Number.parseInt(uploadSetting.value, 10);
-			if (Number.isFinite(parsed) && parsed >= 0) {
-				maxUploadSizeMb = parsed;
-				uploadLimitInput = String(parsed);
+		try {
+			const settings = await systemApi.listSettings();
+			disallowReg = settings.some((s) => s.name === 'disallow-user-registration' && s.value === 'true');
+			const uploadSetting = settings.find((s) => s.name === 'max-upload-size-mb');
+			if (uploadSetting) {
+				const parsed = Number.parseInt(uploadSetting.value, 10);
+				if (Number.isFinite(parsed) && parsed >= 0) {
+					maxUploadSizeMb = parsed;
+					uploadLimitInput = String(parsed);
+				}
 			}
+		} catch {
+			// Keep safe defaults if settings fail to load
 		}
 	});
 

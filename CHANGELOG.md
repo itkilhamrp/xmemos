@@ -5,6 +5,23 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.12] - 2026-11-27
+
+### Fixed
+- **Windows Frameless Header Double-Click Maximize / Restore (`src/lib/utils/platform.ts`, `src/lib/components/layout/AppShell.svelte`)**:
+  - Removed duplicate `data-tauri-drag-region` attributes from header containers managed by `handleTitlebarMouseDown` and deferred `startDesktopWindowDrag()` until a `>= 4px` mouse move threshold with dual double-click detection (`event.detail === 2` or `<= 360ms` within `6px`) and a `220ms` toggle lock—fixing broken double-click Maximize/Restore on Windows WebView2.
+- **500 Internal Error on `/review` & Hardened Settings (`src/routes/review/+page.svelte`, `src/routes/settings/system/+page.svelte`)**:
+  - Wrapped the `/review` data-loading `$effect` body in Svelte 5 `untrack(() => Ellipsis)` to eliminate the `effect_update_depth_exceeded` infinite reactivity loop that triggered 500 errors, and added `try/catch` protection in `settings/system/+page.svelte`.
+- **Silky 60/120fps 2-Finger Laptop Touchpad Pinch-to-Zoom on `/map` (`src/lib/utils/osm-tiles.ts`, `src/lib/components/map/OsmMapCanvas.svelte`)**:
+  - Switched Leaflet `zoomSnap` from `0.25` (which dropped small precision-touchpad pinch deltas) to `0` (continuous fractional zoom), added `deltaMode` normalization + `requestAnimationFrame`-coalesced cursor-anchored `setZoomAround` accumulation in `attachMapPinchZoomGuard`, and debounced marker re-clustering (`50ms`) during continuous pinching.
+
+## [2.9.11] - 2026-11-27
+
+### Fixed
+- **Fatal Blank Black Screen on Android (`src/routes/+layout.svelte`, `src/app.css`, `XmemosStartupOptimizer.kt`, `AGENTS.md`)**:
+  - Removed the `<div class="xm-route-stage">` wrapper around `{@render children()}` inside Konsta `<App>`, whose `min-height: 100%` + `will-change: transform` created a 0px containing block that collapsed Konsta UI `<Page>` (`position: absolute; height: 100%`) into an invisible black screen on Android while only `<BottomTabbar />` remained visible.
+  - Applied the lightweight `165ms` directional slide animation transiently directly onto `.k-ios-page` (leaving zero permanent `transform` or `will-change`), removed `#xm-boot-shell` synchronously upon SvelteKit hydration, and removed the redundant `webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)` override in `XmemosStartupOptimizer.kt`.
+
 ## [2.9.10] - 2026-11-27
 
 ### Changed

@@ -178,6 +178,9 @@ export function attachMapPinchZoomGuard(
 	mapInst: LeafletNS.Map
 ): () => void {
 	let gestureBaseZoom = mapInst.getZoom();
+	let pendingDeltaZoom = 0;
+	let lastAnchorEvent: WheelEvent | null = null;
+	let pinchRafId = 0;
 
 	const clampZoom = (z: number): number => {
 		const minZ = mapInst.getMinZoom();
@@ -185,17 +188,34 @@ export function attachMapPinchZoomGuard(
 		return Math.min(maxZ, Math.max(minZ, z));
 	};
 
+	const flushPinchFrame = () => {
+		pinchRafId = 0;
+		if (!lastAnchorEvent || pendingDeltaZoom === 0) return;
+		const delta = pendingDeltaZoom;
+		const ev = lastAnchorEvent;
+		pendingDeltaZoom = 0;
+		const nextZoom = clampZoom(mapInst.getZoom() + delta);
+		if (Math.abs(nextZoom - mapInst.getZoom()) < 0.001) return;
+		const anchor = mapInst.mouseEventToLatLng(ev);
+		mapInst.setZoomAround(anchor, nextZoom, { animate: false });
+	};
+
 	const onWheel = (event: WheelEvent) => {
 		if (!event.ctrlKey) return;
 		event.preventDefault();
 		event.stopPropagation();
 
-		// Normalize touchpad pinch deltaY into smooth Leaflet zoom steps anchored at cursor
-		const delta = -event.deltaY * 0.012;
+		// Normalize touchpad pinch deltaMode (pixel/line/page) & coalesce into 60/120fps rAF
+		const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
+		const normalized = Math.max(-60, Math.min(60, event.deltaY * scale));
+		const delta = -normalized * 0.015;
 		if (!Number.isFinite(delta) || delta === 0) return;
-		const nextZoom = clampZoom(mapInst.getZoom() + delta);
-		const anchor = mapInst.mouseEventToLatLng(event);
-		mapInst.setZoomAround(anchor, nextZoom, { animate: false });
+
+		pendingDeltaZoom += delta;
+		lastAnchorEvent = event;
+		if (pinchRafId === 0) {
+			pinchRafId = requestAnimationFrame(flushPinchFrame);
+		}
 	};
 
 	const onGestureStart = (event: Event) => {
@@ -224,6 +244,7 @@ export function attachMapPinchZoomGuard(
 	container.addEventListener('gestureend', onGestureEnd, { passive: false });
 
 	return () => {
+		if (pinchRafId !== 0) cancelAnimationFrame(pinchRafId);
 		container.removeEventListener('wheel', onWheel, { capture: true });
 		container.removeEventListener('gesturestart', onGestureStart);
 		container.removeEventListener('gesturechange', onGestureChange);

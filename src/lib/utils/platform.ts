@@ -105,10 +105,15 @@ export async function isDesktopWindowMaximized(): Promise<boolean> {
 	}
 }
 
+let lastTitlebarClickTs = 0;
+let lastTitlebarClickX = 0;
+let lastTitlebarClickY = 0;
+let lastMaximizeToggleTs = 0;
+
 /**
- * Official Tauri v2 manual drag & double-click maximize handler for frameless desktop headers.
- * Works reliably across GNU/Linux (Wayland & X11), macOS, and Windows while ignoring clicks
- * on interactive toolbar controls.
+ * Cross-OS frameless desktop header drag & double-click maximize/restore handler.
+ * Uses a 4px drag-slop threshold before calling `startDragging()` so Windows Win32
+ * `WM_NCLBUTTONDOWN` never swallows click #1 or breaks double-click maximize/restore.
  */
 export function handleTitlebarMouseDown(event: MouseEvent): void {
 	if (!isDesktopTauri()) return;
@@ -116,11 +121,52 @@ export function handleTitlebarMouseDown(event: MouseEvent): void {
 	const target = event.target as HTMLElement | null;
 	if (target?.closest(INTERACTIVE_DRAG_IGNORE)) return;
 
-	if (event.detail === 2) {
-		void toggleMaximizeDesktopWindow().catch(() => {});
-	} else {
-		void startDesktopWindowDrag().catch(() => {});
+	const now = Date.now();
+	const distFromPrev = Math.hypot(event.clientX - lastTitlebarClickX, event.clientY - lastTitlebarClickY);
+	const isDoubleClick =
+		event.detail === 2 || (now - lastTitlebarClickTs <= 360 && distFromPrev <= 6);
+
+	if (isDoubleClick) {
+		event.preventDefault();
+		lastTitlebarClickTs = 0;
+		if (now - lastMaximizeToggleTs > 220) {
+			lastMaximizeToggleTs = now;
+			void toggleMaximizeDesktopWindow().catch(() => {});
+		}
+		return;
 	}
+
+	lastTitlebarClickTs = now;
+	lastTitlebarClickX = event.clientX;
+	lastTitlebarClickY = event.clientY;
+
+	const startX = event.clientX;
+	const startY = event.clientY;
+	let dragStarted = false;
+
+	const cleanup = () => {
+		window.removeEventListener('mousemove', onMouseMove);
+		window.removeEventListener('mouseup', cleanup);
+		window.removeEventListener('blur', cleanup);
+	};
+
+	const onMouseMove = (moveEvent: MouseEvent) => {
+		if (dragStarted) return;
+		if ((moveEvent.buttons & 1) === 0) {
+			cleanup();
+			return;
+		}
+		if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) >= 4) {
+			dragStarted = true;
+			lastTitlebarClickTs = 0;
+			cleanup();
+			void startDesktopWindowDrag().catch(() => {});
+		}
+	};
+
+	window.addEventListener('mousemove', onMouseMove);
+	window.addEventListener('mouseup', cleanup);
+	window.addEventListener('blur', cleanup);
 }
 
 /**

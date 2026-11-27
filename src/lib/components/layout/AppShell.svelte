@@ -219,7 +219,6 @@
 		<!-- Narrow Desktop Window (< 1024px on Linux/macOS/Windows): Integrated macOS Liquid Glass Titlebar Strip -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			data-tauri-drag-region
 			onmousedown={handleTitlebarMouseDown}
 			class="xm-desktop-strip xm-drag-region sticky top-0 z-40 flex h-[34px] shrink-0 items-center justify-between px-3 lg:hidden"
 		>
@@ -411,12 +410,11 @@
 		<!-- Desktop (>= 1024px): macOS 2026 Unified Liquid Glass Window Toolbar (52px, Frameless Drag Region) -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header
-			data-tauri-drag-region
 			onmousedown={handleTitlebarMouseDown}
 			class="xm-macos-toolbar xm-drag-region hidden h-[52px] shrink-0 items-center justify-between gap-3 px-4 lg:flex"
 		>
 			<!-- Leading Toolbar Cluster: Collapsed Traffic Lights + Sidebar Toggle + Contextual Back + Window Title -->
-			<div data-tauri-drag-region class="flex min-w-0 items-center gap-2">
+			<div class="flex min-w-0 items-center gap-2">
 				{#if desktopWindow && !desktopLayoutState.sidebarOpen}
 					<DesktopWindowControls />
 					<span class="mx-0.5 h-3.5 w-px shrink-0 bg-[var(--xm-divider)]" aria-hidden="true"></span>

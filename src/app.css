@@ -1481,17 +1481,10 @@ input[type='search']::-webkit-search-results-decoration {
    Zero-Snapshot GPU Directional Slide Page Transitions (120fps Android-Safe)
    ========================================================================== */
 
-.xm-route-stage {
-	min-height: 100%;
-	will-change: transform, opacity;
-	backface-visibility: hidden;
-	-webkit-backface-visibility: hidden;
-}
-
 @keyframes xm-route-slide-in-right {
 	from {
-		opacity: 0.82;
-		transform: translate3d(16%, 0, 0);
+		opacity: 0.84;
+		transform: translate3d(14%, 0, 0);
 	}
 	to {
 		opacity: 1;
@@ -1501,8 +1494,8 @@ input[type='search']::-webkit-search-results-decoration {
 
 @keyframes xm-route-slide-in-left {
 	from {
-		opacity: 0.82;
-		transform: translate3d(-16%, 0, 0);
+		opacity: 0.84;
+		transform: translate3d(-14%, 0, 0);
 	}
 	to {
 		opacity: 1;
@@ -1510,17 +1503,17 @@ input[type='search']::-webkit-search-results-decoration {
 	}
 }
 
-.xm-route-stage.xm-slide-forward {
-	animation: xm-route-slide-in-right 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.k-ios-page.xm-slide-forward {
+	animation: xm-route-slide-in-right 165ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.xm-route-stage.xm-slide-backward {
-	animation: xm-route-slide-in-left 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.k-ios-page.xm-slide-backward {
+	animation: xm-route-slide-in-left 165ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.xm-route-stage.xm-slide-forward,
-	.xm-route-stage.xm-slide-backward {
+	.k-ios-page.xm-slide-forward,
+	.k-ios-page.xm-slide-backward {
 		animation: none !important;
 	}
 }
