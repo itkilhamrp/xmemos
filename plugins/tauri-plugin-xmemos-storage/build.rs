@@ -26,6 +26,7 @@ const COMMANDS: &[&str] = &[
     "authenticate_biometric",
     "check_biometric_available",
     "create_memo_shortcut",
+    "update_memo_shortcut_color",
     "consume_pending_memo_shortcut",
 ];
 

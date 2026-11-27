@@ -23,6 +23,7 @@ import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.media.MediaScannerConnection
 import android.os.Environment
@@ -100,6 +101,15 @@ class CreateMemoShortcutArgs {
 }
 
 @InvokeArg
+class UpdateMemoShortcutColorArgs {
+    var memoUid: String = ""
+    var color: String = "yellow"
+    var title: String? = null
+    var preview: String? = null
+    var pinned: Boolean = false
+}
+
+@InvokeArg
 class CompressVideoArgs {
     var sourcePath: String = ""
     var maxShortSide: Int? = null
@@ -119,6 +129,239 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
         internal const val ACTION_OPEN_MEMO_SHORTCUT = "org.xmemos.app.ACTION_OPEN_MEMO_SHORTCUT"
         internal const val EXTRA_MEMO_UID = "org.xmemos.app.EXTRA_MEMO_UID"
         private val MEMO_UID_REGEX = Regex("^[a-zA-Z0-9_-]{1,64}$")
+
+        private data class ShortcutBitmapPalette(
+            val bgStops: IntArray,
+            val cardTop: Int,
+            val cardBottom: Int,
+            val accent: Int,
+            val linePrimary: Int,
+            val lineSecondary: Int
+        )
+
+        private fun resolveShortcutBitmapPalette(color: String?): ShortcutBitmapPalette {
+            return when (XmemosMemoWidgetProvider.normalizeColor(color)) {
+                "slate" -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#3AC0FF"),
+                        Color.parseColor("#0A84FF"),
+                        Color.parseColor("#0056D2"),
+                        Color.parseColor("#06287A")
+                    ),
+                    cardTop = Color.argb(252, 255, 255, 255),
+                    cardBottom = Color.argb(238, 226, 236, 248),
+                    accent = Color.parseColor("#0A84FF"),
+                    linePrimary = Color.argb(145, 15, 23, 42),
+                    lineSecondary = Color.argb(95, 15, 23, 42)
+                )
+                "blue" -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#7DD3FC"),
+                        Color.parseColor("#38BDF8"),
+                        Color.parseColor("#0284C7"),
+                        Color.parseColor("#075985")
+                    ),
+                    cardTop = Color.argb(252, 240, 249, 255),
+                    cardBottom = Color.argb(242, 219, 239, 255),
+                    accent = Color.parseColor("#0284C7"),
+                    linePrimary = Color.argb(150, 23, 56, 84),
+                    lineSecondary = Color.argb(95, 23, 56, 84)
+                )
+                "green" -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#6EE7B7"),
+                        Color.parseColor("#34D399"),
+                        Color.parseColor("#10B981"),
+                        Color.parseColor("#065F46")
+                    ),
+                    cardTop = Color.argb(252, 240, 253, 244),
+                    cardBottom = Color.argb(242, 220, 252, 231),
+                    accent = Color.parseColor("#059669"),
+                    linePrimary = Color.argb(150, 20, 68, 43),
+                    lineSecondary = Color.argb(95, 20, 68, 43)
+                )
+                "pink" -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#F9A8D4"),
+                        Color.parseColor("#F472B6"),
+                        Color.parseColor("#EC4899"),
+                        Color.parseColor("#9D174D")
+                    ),
+                    cardTop = Color.argb(252, 253, 242, 248),
+                    cardBottom = Color.argb(242, 252, 231, 243),
+                    accent = Color.parseColor("#DB2777"),
+                    linePrimary = Color.argb(150, 86, 25, 58),
+                    lineSecondary = Color.argb(95, 86, 25, 58)
+                )
+                "purple" -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#C4B5FD"),
+                        Color.parseColor("#A78BFA"),
+                        Color.parseColor("#8B5CF6"),
+                        Color.parseColor("#5B21B6")
+                    ),
+                    cardTop = Color.argb(252, 245, 243, 255),
+                    cardBottom = Color.argb(242, 237, 233, 254),
+                    accent = Color.parseColor("#7C3AED"),
+                    linePrimary = Color.argb(150, 48, 30, 96),
+                    lineSecondary = Color.argb(95, 48, 30, 96)
+                )
+                else -> ShortcutBitmapPalette(
+                    bgStops = intArrayOf(
+                        Color.parseColor("#FDE68A"),
+                        Color.parseColor("#FBBF24"),
+                        Color.parseColor("#F59E0B"),
+                        Color.parseColor("#B45309")
+                    ),
+                    cardTop = Color.argb(252, 255, 251, 235),
+                    cardBottom = Color.argb(242, 254, 243, 199),
+                    accent = Color.parseColor("#D97706"),
+                    linePrimary = Color.argb(155, 66, 48, 12),
+                    lineSecondary = Color.argb(100, 66, 48, 12)
+                )
+            }
+        }
+
+        /**
+         * Renders a crisp, Sticky Note-themed Liquid Glass adaptive shortcut bitmap (192x192 ARGB_8888)
+         * matching the 6 Desktop Sticky Note palettes (yellow, blue, green, pink, purple, slate).
+         */
+        internal fun renderMemoShortcutBitmap(title: String, pinned: Boolean, color: String? = "yellow"): Bitmap {
+            val size = 192
+            val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            val palette = resolveShortcutBitmapPalette(color)
+
+            // Full-bleed sticky color gradient (safe for Android Adaptive Icon masks)
+            paint.shader = LinearGradient(
+                0f, 0f, size.toFloat(), size.toFloat(),
+                palette.bgStops,
+                floatArrayOf(0f, 0.34f, 0.72f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
+            paint.shader = null
+
+            // Centered frosted memo card inside Adaptive Icon 66% safe zone (36..156)
+            val cardRect = RectF(42f, 38f, 150f, 154f)
+            val cardRadius = 20f
+
+            // Subtle card elevation shadow
+            paint.color = Color.argb(56, 15, 23, 42)
+            canvas.drawRoundRect(
+                RectF(cardRect.left, cardRect.top + 4f, cardRect.right, cardRect.bottom + 5f),
+                cardRadius, cardRadius, paint
+            )
+
+            // Tinted frosted Sticky Note card
+            paint.shader = LinearGradient(
+                cardRect.left, cardRect.top, cardRect.right, cardRect.bottom,
+                palette.cardTop,
+                palette.cardBottom,
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawRoundRect(cardRect, cardRadius, cardRadius, paint)
+            paint.shader = null
+
+            // Top color accent strip inside the sticky card
+            paint.color = palette.accent
+            canvas.drawRoundRect(RectF(56f, 48f, 92f, 54f), 3f, 3f, paint)
+
+            // Optional top-right amber corner-fold pin indicator (1:1 MemoCard parity)
+            if (pinned) {
+                val saveCount = canvas.save()
+                val clipPath = Path().apply {
+                    addRoundRect(cardRect, cardRadius, cardRadius, Path.Direction.CW)
+                }
+                canvas.clipPath(clipPath)
+                val foldPath = Path().apply {
+                    moveTo(cardRect.right, cardRect.top)
+                    lineTo(cardRect.right - 26f, cardRect.top)
+                    lineTo(cardRect.right, cardRect.top + 26f)
+                    close()
+                }
+                paint.color = Color.parseColor("#FBBF24")
+                canvas.drawPath(foldPath, paint)
+                canvas.restoreToCount(saveCount)
+            }
+
+            // Bold title initial badge in center of mini card
+            val initial = title.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "X"
+            paint.color = palette.accent
+            paint.textAlign = Paint.Align.CENTER
+            paint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            paint.textSize = 42f
+            val fm = paint.fontMetrics
+            val textCenterY = 86f - (fm.ascent + fm.descent) / 2f
+            canvas.drawText(initial, size / 2f, textCenterY, paint)
+
+            // Clean widget-like mini note lines below initial
+            paint.color = palette.linePrimary
+            canvas.drawRoundRect(RectF(62f, 116f, 130f, 124f), 4f, 4f, paint)
+            paint.color = palette.lineSecondary
+            canvas.drawRoundRect(RectF(62f, 131f, 114f, 139f), 4f, 4f, paint)
+
+            return bmp
+        }
+
+        /**
+         * Updates any existing pinned or dynamic Android Home-Screen shortcut for [memoUid]
+         * using ShortcutManagerCompat.updateShortcuts() with a freshly colored adaptive bitmap.
+         */
+        internal fun updateShortcutIconColor(
+            context: Context,
+            memoUid: String,
+            title: String?,
+            preview: String?,
+            pinned: Boolean,
+            color: String
+        ): Boolean {
+            if (!MEMO_UID_REGEX.matches(memoUid)) return false
+            val shortcutId = "xmemos-memo-$memoUid"
+            return runCatching {
+                val existing = ShortcutManagerCompat.getShortcuts(
+                    context,
+                    ShortcutManagerCompat.FLAG_MATCH_PINNED or ShortcutManagerCompat.FLAG_MATCH_DYNAMIC
+                ).firstOrNull { it.id == shortcutId } ?: return false
+
+                val cleanTitle = title?.replace(Regex("[\r\n\t]+"), " ")?.trim()
+                    ?.ifEmpty { null }
+                    ?: existing.shortLabel.toString().ifBlank { "Xmemos Memo" }
+                val shortLabel = cleanTitle.take(24)
+                val longLabel = preview?.replace(Regex("[\r\n\t]+"), " ")?.trim()
+                    ?.ifEmpty { null }
+                    ?: existing.longLabel?.toString()?.ifBlank { null }
+                    ?: cleanTitle
+
+                val launchIntent = (
+                    context.packageManager.getLaunchIntentForPackage(context.packageName)
+                        ?: existing.intent
+                    ).apply {
+                    action = ACTION_OPEN_MEMO_SHORTCUT
+                    putExtra(EXTRA_MEMO_UID, memoUid)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+
+                val bitmap = renderMemoShortcutBitmap(shortLabel, pinned, color)
+                val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    IconCompat.createWithAdaptiveBitmap(bitmap)
+                } else {
+                    IconCompat.createWithBitmap(bitmap)
+                }
+
+                val updatedInfo = ShortcutInfoCompat.Builder(context, shortcutId)
+                    .setShortLabel(shortLabel)
+                    .setLongLabel(longLabel.take(60))
+                    .setIcon(icon)
+                    .setIntent(launchIntent)
+                    .build()
+
+                ShortcutManagerCompat.updateShortcuts(context, listOf(updatedInfo))
+            }.getOrDefault(false)
+        }
     }
 
     private var pendingSaveSourcePath: String? = null
@@ -141,6 +384,9 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
             pendingShortcutMemoUid = uid
             val payload = JSObject()
             payload.put("memoUid", uid)
+            XmemosMemoWidgetProvider.getSavedMemoColor(activity, uid)?.let { savedColor ->
+                payload.put("color", savedColor)
+            }
             trigger("memoShortcutOpened", payload)
         }
     }
@@ -148,90 +394,6 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
     private fun extractMemoUidFromIntent(intent: Intent?): String? {
         val raw = intent?.getStringExtra(EXTRA_MEMO_UID)?.trim() ?: return null
         return if (MEMO_UID_REGEX.matches(raw)) raw else null
-    }
-
-    /**
-     * Renders a crisp, widget-like Liquid Glass adaptive shortcut bitmap (192x192 ARGB_8888)
-     * featuring the Xmemos sapphire backdrop, frosted memo card, optional amber pin fold,
-     * and readable mini preview lines / monogram so each pinned memo stands out clearly on Home.
-     */
-    private fun renderMemoShortcutBitmap(title: String, pinned: Boolean): Bitmap {
-        val size = 192
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        // Full-bleed Liquid Glass sapphire gradient (safe for Android Adaptive Icon masks)
-        paint.shader = LinearGradient(
-            0f, 0f, size.toFloat(), size.toFloat(),
-            intArrayOf(
-                Color.parseColor("#3AC0FF"),
-                Color.parseColor("#0A84FF"),
-                Color.parseColor("#0056D2"),
-                Color.parseColor("#06287A")
-            ),
-            floatArrayOf(0f, 0.34f, 0.72f, 1f),
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
-        paint.shader = null
-
-        // Centered frosted memo card inside Adaptive Icon 66% safe zone (36..156)
-        val cardRect = RectF(42f, 38f, 150f, 154f)
-        val cardRadius = 20f
-
-        // Subtle card elevation shadow
-        paint.color = Color.argb(64, 0, 24, 72)
-        canvas.drawRoundRect(
-            RectF(cardRect.left, cardRect.top + 4f, cardRect.right, cardRect.bottom + 5f),
-            cardRadius, cardRadius, paint
-        )
-
-        // Frosted white Liquid Glass memo card
-        paint.shader = LinearGradient(
-            cardRect.left, cardRect.top, cardRect.right, cardRect.bottom,
-            Color.argb(252, 255, 255, 255),
-            Color.argb(238, 220, 235, 255),
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, paint)
-        paint.shader = null
-
-        // Optional top-right amber corner-fold pin indicator (1:1 MemoCard parity)
-        if (pinned) {
-            val saveCount = canvas.save()
-            val clipPath = Path().apply {
-                addRoundRect(cardRect, cardRadius, cardRadius, Path.Direction.CW)
-            }
-            canvas.clipPath(clipPath)
-            val foldPath = Path().apply {
-                moveTo(cardRect.right, cardRect.top)
-                lineTo(cardRect.right - 26f, cardRect.top)
-                lineTo(cardRect.right, cardRect.top + 26f)
-                close()
-            }
-            paint.color = Color.parseColor("#FBBF24")
-            canvas.drawPath(foldPath, paint)
-            canvas.restoreToCount(saveCount)
-        }
-
-        // Bold title initial badge in top-left of mini card
-        val initial = title.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "X"
-        paint.color = Color.parseColor("#0A84FF")
-        paint.textAlign = Paint.Align.CENTER
-        paint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        paint.textSize = 44f
-        val fm = paint.fontMetrics
-        val textCenterY = 82f - (fm.ascent + fm.descent) / 2f
-        canvas.drawText(initial, size / 2f, textCenterY, paint)
-
-        // Clean widget-like mini note lines below initial
-        paint.color = Color.argb(140, 15, 23, 42)
-        canvas.drawRoundRect(RectF(62f, 114f, 130f, 122f), 4f, 4f, paint)
-        paint.color = Color.argb(90, 15, 23, 42)
-        canvas.drawRoundRect(RectF(62f, 129f, 114f, 137f), 4f, 4f, paint)
-
-        return bmp
     }
 
     @Command
@@ -262,7 +424,8 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                     Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
 
-            val bitmap = renderMemoShortcutBitmap(shortLabel, args.pinned)
+            val safeColor = XmemosMemoWidgetProvider.normalizeColor(args.color)
+            val bitmap = renderMemoShortcutBitmap(shortLabel, args.pinned, safeColor)
             val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 IconCompat.createWithAdaptiveBitmap(bitmap)
             } else {
@@ -313,7 +476,9 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                                 cleanTitle.take(48),
                                 longLabel,
                                 richMeta,
-                                richBadge
+                                richBadge,
+                                safeColor,
+                                args.pinned
                             )
                             val provider = ComponentName(activity, XmemosMemoWidgetProvider::class.java)
                             val previewViews = XmemosMemoWidgetProvider.buildRemoteViews(
@@ -323,6 +488,7 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
                                 preview = longLabel,
                                 meta = richMeta,
                                 badge = richBadge,
+                                color = safeColor,
                                 requestCode = uid.hashCode()
                             )
                             val extras = Bundle().apply {
@@ -366,12 +532,48 @@ class XmemosStoragePlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun updateMemoShortcutColor(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(UpdateMemoShortcutColorArgs::class.java)
+            val uid = args.memoUid.trim()
+            if (!MEMO_UID_REGEX.matches(uid)) {
+                invoke.reject("Invalid memo UID for shortcut color update")
+                return
+            }
+            val safeColor = XmemosMemoWidgetProvider.normalizeColor(args.color)
+            val updatedWidgets = XmemosMemoWidgetProvider.updateWidgetsForMemoColor(
+                context = activity,
+                memoUid = uid,
+                color = safeColor
+            )
+            val updatedShortcut = updateShortcutIconColor(
+                context = activity,
+                memoUid = uid,
+                title = args.title,
+                preview = args.preview,
+                pinned = args.pinned,
+                color = safeColor
+            )
+            val ret = JSObject()
+            ret.put("updatedWidgets", updatedWidgets)
+            ret.put("updatedShortcut", updatedShortcut)
+            ret.put("color", safeColor)
+            invoke.resolve(ret)
+        } catch (e: Exception) {
+            invoke.reject("Failed to update Android memo shortcut color: ${e.message}")
+        }
+    }
+
+    @Command
     fun consumePendingMemoShortcut(invoke: Invoke) {
         val uid = pendingShortcutMemoUid
         pendingShortcutMemoUid = null
         val ret = JSObject()
         if (uid != null) {
             ret.put("memoUid", uid)
+            XmemosMemoWidgetProvider.getSavedMemoColor(activity, uid)?.let { savedColor ->
+                ret.put("color", savedColor)
+            }
         }
         invoke.resolve(ret)
     }

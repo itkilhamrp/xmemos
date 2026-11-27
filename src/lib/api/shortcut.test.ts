@@ -18,7 +18,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { describe, expect, it } from 'vitest';
-import { buildMemoShortcutMeta } from './shortcut';
+import { buildMemoShortcutMeta, isValidStickyColor, STICKY_COLOR_OPTIONS } from './shortcut';
 
 describe('buildMemoShortcutMeta', () => {
 	it('extracts a clean title and preview from Markdown memos', () => {
@@ -38,5 +38,22 @@ describe('buildMemoShortcutMeta', () => {
 		const longMeta = buildMemoShortcutMeta('A'.repeat(80));
 		expect(longMeta.title.length).toBeLessThanOrEqual(48);
 		expect(longMeta.title.endsWith('...')).toBe(true);
+	});
+});
+
+describe('sticky note color palette helpers', () => {
+	it('exposes all 6 Desktop/Android Sticky Note colors and validates ids', () => {
+		expect(STICKY_COLOR_OPTIONS.map((o) => o.id)).toEqual([
+			'yellow',
+			'blue',
+			'green',
+			'pink',
+			'purple',
+			'slate'
+		]);
+		expect(isValidStickyColor('yellow')).toBe(true);
+		expect(isValidStickyColor('pink')).toBe(true);
+		expect(isValidStickyColor('invalid')).toBe(false);
+		expect(isValidStickyColor(null)).toBe(false);
 	});
 });

@@ -58,7 +58,6 @@
 	import MemoContent from './MemoContent.svelte';
 	import AttachmentGrid from '#lib/components/media/AttachmentGrid.svelte';
 	import AttachmentPreviewStrip, { type UploadProgressItem } from '#lib/components/media/AttachmentPreviewStrip.svelte';
-	import OsmMapCanvas from '#lib/components/map/OsmMapCanvas.svelte';
 
 	interface Props {
 		opened: boolean;
@@ -1043,19 +1042,21 @@
 							</div>
 
 							<div class="h-40 w-full">
-								<OsmMapCanvas
-									pickerMode
-									compact
-									droppedPin={parsedLocation}
-									onDropPin={(lat, lng) => {
-										locationLat = lat.toFixed(6);
-										locationLng = lng.toFixed(6);
-										if (autoFilledLocationLabel || isCoordinateOnlyLabel(locationLabel)) {
-											locationLabel = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-										}
-										void resolveLocationLabel(lat, lng);
-									}}
-								/>
+								{#await import('#lib/components/map/OsmMapCanvas.svelte') then { default: OsmMapCanvas }}
+									<OsmMapCanvas
+										pickerMode
+										compact
+										droppedPin={parsedLocation}
+										onDropPin={(lat, lng) => {
+											locationLat = lat.toFixed(6);
+											locationLng = lng.toFixed(6);
+											if (autoFilledLocationLabel || isCoordinateOnlyLabel(locationLabel)) {
+												locationLabel = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+											}
+											void resolveLocationLabel(lat, lng);
+										}}
+									/>
+								{/await}
 							</div>
 
 							<input

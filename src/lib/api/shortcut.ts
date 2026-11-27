@@ -22,6 +22,30 @@ import { stripMarkdownToPlainText } from '#lib/utils/markdown.ts';
 
 export type StickyColorId = 'slate' | 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
 
+export const STICKY_COLOR_OPTIONS: ReadonlyArray<{
+	id: StickyColorId;
+	label: string;
+	swatch: string;
+}> = [
+	{ id: 'yellow', label: 'Amber Glow', swatch: '#f59e0b' },
+	{ id: 'blue', label: 'Oceanic Blue', swatch: '#38bdf8' },
+	{ id: 'green', label: 'Emerald Mint', swatch: '#34d399' },
+	{ id: 'pink', label: 'Rose Quartz', swatch: '#f472b6' },
+	{ id: 'purple', label: 'Indigo Mist', swatch: '#a78bfa' },
+	{ id: 'slate', label: 'Graphite Glass', swatch: '#0a84ff' }
+];
+
+export function isValidStickyColor(value: unknown): value is StickyColorId {
+	return (
+		value === 'slate' ||
+		value === 'yellow' ||
+		value === 'blue' ||
+		value === 'green' ||
+		value === 'pink' ||
+		value === 'purple'
+	);
+}
+
 export interface StickyWindowPrefs {
 	x?: number;
 	y?: number;
@@ -58,6 +82,21 @@ export interface AlwaysOnTopResult {
 
 export interface PendingMemoShortcutResult {
 	memoUid?: string | null;
+	color?: string | null;
+}
+
+export interface UpdateMemoShortcutColorPayload {
+	memoUid: string;
+	color: StickyColorId;
+	title?: string;
+	preview?: string;
+	pinned?: boolean;
+}
+
+export interface UpdateMemoShortcutColorResult {
+	updatedWidgets: number;
+	updatedShortcut: boolean;
+	color: StickyColorId;
 }
 
 const VALID_UID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -92,15 +131,7 @@ export function loadStickyPrefs(memoUid: string): StickyWindowPrefs {
 		const raw = localStorage.getItem(`${STICKY_PREFS_PREFIX}${memoUid}`);
 		if (!raw) return defaults;
 		const parsed = JSON.parse(raw) as Partial<StickyWindowPrefs>;
-		const validColor: StickyColorId =
-			parsed.color === 'slate' ||
-			parsed.color === 'yellow' ||
-			parsed.color === 'blue' ||
-			parsed.color === 'green' ||
-			parsed.color === 'pink' ||
-			parsed.color === 'purple'
-				? parsed.color
-				: 'slate';
+		const validColor: StickyColorId = isValidStickyColor(parsed.color) ? parsed.color : 'yellow';
 		return {
 			x: typeof parsed.x === 'number' && Number.isFinite(parsed.x) ? parsed.x : undefined,
 			y: typeof parsed.y === 'number' && Number.isFinite(parsed.y) ? parsed.y : undefined,
@@ -201,6 +232,26 @@ export const shortcutApi = {
 		return invoke<AlwaysOnTopResult>('system_set_sticky_always_on_top', { label, alwaysOnTop });
 	},
 
+	async updateMemoShortcutColor(
+		payload: UpdateMemoShortcutColorPayload
+	): Promise<UpdateMemoShortcutColorResult> {
+		if (!isTauri() || !VALID_UID_RE.test(payload.memoUid)) {
+			return { updatedWidgets: 0, updatedShortcut: false, color: payload.color };
+		}
+		return invoke<UpdateMemoShortcutColorResult>(
+			'plugin:xmemos-storage|update_memo_shortcut_color',
+			{
+				payload: {
+					memoUid: payload.memoUid,
+					color: payload.color,
+					title: payload.title ?? null,
+					preview: payload.preview ?? null,
+					pinned: Boolean(payload.pinned)
+				}
+			}
+		);
+	},
+
 	async consumePendingMemoShortcut(): Promise<string | null> {
 		if (!isTauri()) return null;
 		try {
@@ -208,7 +259,16 @@ export const shortcutApi = {
 				'plugin:xmemos-storage|consume_pending_memo_shortcut'
 			);
 			const uid = res?.memoUid?.trim();
-			return uid && VALID_UID_RE.test(uid) ? uid : null;
+			if (uid && VALID_UID_RE.test(uid)) {
+				if (isValidStickyColor(res?.color)) {
+					const current = loadStickyPrefs(uid);
+					if (current.color !== res.color) {
+						saveStickyPrefs(uid, { ...current, color: res.color });
+					}
+				}
+				return uid;
+			}
+			return null;
 		} catch {
 			return null;
 		}
@@ -217,12 +277,21 @@ export const shortcutApi = {
 	async onMemoShortcutOpened(handler: (memoUid: string) => void): Promise<(() => void) | null> {
 		if (!isTauri()) return null;
 		try {
-			const listener: PluginListener = await addPluginListener<{ memoUid?: string }>(
+			const listener: PluginListener = await addPluginListener<{
+				memoUid?: string;
+				color?: string;
+			}>(
 				'xmemos-storage',
 				'memoShortcutOpened',
 				(event) => {
 					const uid = event?.memoUid?.trim();
 					if (uid && VALID_UID_RE.test(uid)) {
+						if (isValidStickyColor(event?.color)) {
+							const current = loadStickyPrefs(uid);
+							if (current.color !== event.color) {
+								saveStickyPrefs(uid, { ...current, color: event.color });
+							}
+						}
 						handler(uid);
 					}
 				}

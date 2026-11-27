@@ -95,6 +95,15 @@ impl<R: Runtime> XmemosStorage<R> {
             .map_err(Into::into)
     }
 
+    pub fn update_memo_shortcut_color(
+        &self,
+        req: UpdateMemoShortcutColorRequest,
+    ) -> Result<UpdateMemoShortcutColorResponse> {
+        self.0
+            .run_mobile_plugin("updateMemoShortcutColor", req)
+            .map_err(Into::into)
+    }
+
     pub fn consume_pending_memo_shortcut(&self) -> Result<PendingMemoShortcutResponse> {
         self.0
             .run_mobile_plugin("consumePendingMemoShortcut", ())

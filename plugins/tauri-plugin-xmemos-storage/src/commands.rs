@@ -81,6 +81,14 @@ pub(crate) async fn create_memo_shortcut<R: Runtime>(
 }
 
 #[tauri::command]
+pub(crate) async fn update_memo_shortcut_color<R: Runtime>(
+    app: AppHandle<R>,
+    payload: UpdateMemoShortcutColorRequest,
+) -> Result<UpdateMemoShortcutColorResponse> {
+    app.xmemos_storage().update_memo_shortcut_color(payload)
+}
+
+#[tauri::command]
 pub(crate) async fn consume_pending_memo_shortcut<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<PendingMemoShortcutResponse> {

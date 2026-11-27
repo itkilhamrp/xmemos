@@ -3,16 +3,45 @@
     android:id="@+id/sticky_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_sticky_widget"
+    android:background="@drawable/bg_sticky_widget_yellow"
     android:orientation="vertical"
     android:padding="13dp">
 
-    <!-- Use @RemoteView-safe FrameLayout instead of plain View (which causes InflateException in AppWidgetHostView) -->
-    <FrameLayout
-        android:layout_width="38dp"
-        android:layout_height="4dp"
-        android:layout_marginBottom="8dp"
-        android:background="@color/xmemos_widget_accent" />
+    <!-- Top strip: accent bar + 1-tap Sticky Note color cycler (@RemoteView-safe views only) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Use @RemoteView-safe FrameLayout instead of plain View (which causes InflateException in AppWidgetHostView) -->
+        <FrameLayout
+            android:id="@+id/sticky_widget_accent"
+            android:layout_width="38dp"
+            android:layout_height="4dp"
+            android:background="@color/xmemos_widget_accent_yellow" />
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <FrameLayout
+            android:id="@+id/sticky_widget_color_btn"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:contentDescription="Change sticky note color"
+            android:padding="5dp">
+
+            <ImageView
+                android:id="@+id/sticky_widget_color_dot"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Sticky note color"
+                android:src="@drawable/dot_sticky_color_yellow" />
+        </FrameLayout>
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -39,7 +68,7 @@
             android:layout_height="wrap_content"
             android:paddingStart="6dp"
             android:text="Xmemos"
-            android:textColor="@color/xmemos_widget_badge"
+            android:textColor="@color/xmemos_widget_badge_yellow"
             android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -64,7 +93,7 @@
         android:maxLines="1"
         android:paddingTop="6dp"
         android:text=""
-        android:textColor="@color/xmemos_widget_badge"
+        android:textColor="@color/xmemos_widget_badge_yellow"
         android:textSize="10.5sp"
         android:visibility="gone" />
 </LinearLayout>

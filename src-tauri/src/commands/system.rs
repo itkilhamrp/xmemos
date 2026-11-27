@@ -132,8 +132,10 @@ pub fn system_set_local_pref(
     key: String,
     value: String,
 ) -> AppResult<()> {
-    // Security & safety preferences cannot be mutated in Guest mode
-    if key == "confirm_before_delete" || key == PREF_REQUIRE_PASSWORD_AFTER_SIGN_OUT {
+    // Device-level Local App Lock policy requires HOST/ADMIN; safety preferences require auth
+    if key == PREF_REQUIRE_PASSWORD_AFTER_SIGN_OUT {
+        let _ = require_admin_or_host(&state)?;
+    } else if key == "confirm_before_delete" {
         let _ = require_authenticated_user(&state)?;
     }
 

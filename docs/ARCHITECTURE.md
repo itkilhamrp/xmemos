@@ -195,3 +195,16 @@ Modeled after Official Memos 26.10/26.11 (`usememos.com/docs/usage/memos` & `dem
 - **Pre-Activity Native Prewarm (`XmemosEarlyStartupProvider.kt`)**: Pre-resolves `externalMediaDirs` into memory (`0ms` `getMediaRoot()`) and pre-warms `WebView.getCurrentWebViewPackage()` off the Main Thread before `MainActivity.onCreate()`.
 - **Frame-0 Bundle Diet & Zero-JS Boot Shell (`markdown.ts`, `OsmMapCanvas.svelte`, `src/app.html`)**: Dynamically imports KaTeX JS/CSS only on `$` math, scopes Leaflet CSS to `OsmMapCanvas.svelte`, and paints an inline theme-matched `#xm-boot-shell` before JS hydration.
 - **SQLite `PRAGMA user_version` Fast-Skip (`memos_schema.rs`, `local_schema.rs`)**: Skips redundant startup DDL parsing when `user_version` matches the current schema version.
+
+## v2.9.13 On-Demand Root Overlay Splitting & 16KB-Aligned Native Android `.so` mmap
+- **Zero-Bloat Frame-0 Overlays (`+layout.svelte`, `MemoEditor.svelte`)**: Dynamically loads `MemoActionsSheet`, `ImageLightbox`, `LocationPreviewPopover`, `TimelineDisplayPopover`, `KeyboardShortcutsModal`, `PinLockOverlay`, and `OsmMapCanvas` strictly on demand via Svelte 5 `{#await import(...)}`, deferring secondary-tab `preloadCode()` to `1200ms` + `requestIdleCallback`.
+- **Fast Native Android `.so` Loading (`android-release.yml`, `src-tauri/Cargo.toml`)**: Uses `jniLibs.useLegacyPackaging = false` (16KB page-aligned uncompressed `mmap`) and `opt-level = "s"` with full LTO for faster Android `dlopen` cold starts.
+
+## v2.9.14 Android Home Screen Sticky Widget & Shortcut Color Sync
+- **6 Day/Night Native Sticky Palettes**: `plugins/tauri-plugin-xmemos-storage/android/src/main/res/values/colors.xml` and `values-night/colors.xml` define 6 Sticky Note themes (`yellow`, `blue`, `green`, `pink`, `purple`, `slate`) backed by 12 lightweight XML shape drawables (`bg_sticky_widget_*.xml`, `dot_sticky_color_*.xml`) protected from R8 shrinking in `res/raw/keep.xml`.
+- **1-Tap Widget Color Cycling**: `widget_memo_sticky.xml` embeds a `@RemoteView`-safe `FrameLayout` + `ImageView` swatch button bound to an explicit foreground broadcast (`XmemosMemoWidgetProvider.ACTION_CYCLE_WIDGET_COLOR`, `Intent.FLAG_RECEIVER_FOREGROUND`, `PendingIntent.FLAG_IMMUTABLE`) that cycles the widget's color in <5ms via `AppWidgetManager.updateAppWidget()`, syncs sibling widgets for the same `memoUid`, and updates any pinned shortcut via `ShortcutManagerCompat.updateShortcuts()`.
+- **In-App Picker & Two-Way Sync**: Mobile `MemoActionsSheet.svelte` exposes the same 6 color swatches and invokes `plugin:xmemos-storage|update_memo_shortcut_color`; opening a memo from a Home Screen widget passes the saved color back via `memoShortcutOpened` / `consumePendingMemoShortcut` to keep `localStorage` prefs in sync.
+
+## v2.9.15 HOST/ADMIN-Only Local App Lock Enforcement
+- **Backend RBAC Defense-in-Depth**: `auth_set_lock_config` (`src-tauri/src/commands/auth.rs`) and `system_set_local_pref` for `require_password_after_sign_out` (`src-tauri/src/commands/system.rs`) require `require_admin_or_host(&state)?`.
+- **Frontend Read-Only Guard**: `src/routes/settings/account/+page.svelte` disables all Local App Lock controls and hides Save/Clear actions when `!authState.isAdminOrHost`, displaying `account.lockAdminOnly`.

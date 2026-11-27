@@ -23,7 +23,8 @@ use tauri::State;
 use crate::error::{AppError, AppResult};
 use crate::service::auth::{
     self, get_require_password_after_sign_out, get_user_lock_config, hash_password,
-    normalize_username, require_authenticated_user, set_user_lock_config, validate_username,
+    normalize_username, require_admin_or_host, require_authenticated_user, set_user_lock_config,
+    validate_username,
     verify_password,
     verify_user_pin, UserLockConfig,
 };
@@ -272,7 +273,7 @@ pub fn auth_set_lock_config(
     state: State<'_, AppState>,
     payload: SetLockPayload,
 ) -> AppResult<UserLockConfig> {
-    let current = require_authenticated_user(&state)?;
+    let current = require_admin_or_host(&state)?;
     set_user_lock_config(
         &state,
         current.id,

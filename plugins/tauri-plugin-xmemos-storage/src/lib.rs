@@ -71,6 +71,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::authenticate_biometric,
             commands::check_biometric_available,
             commands::create_memo_shortcut,
+            commands::update_memo_shortcut_color,
             commands::consume_pending_memo_shortcut,
         ])
         .setup(|app, api| {

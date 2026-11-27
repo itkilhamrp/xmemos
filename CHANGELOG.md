@@ -5,6 +5,29 @@ All notable changes to **Xmemos** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/spec/v2.0.0.html),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.15] - 2026-11-28
+
+### Security & Changed
+- **HOST/ADMIN-Only Local App Lock Settings (`src-tauri/src/commands/auth.rs`, `src-tauri/src/commands/system.rs`, `src/routes/settings/account/+page.svelte`, `src/lib/i18n/locales/*.ts`)**:
+  - Enforced `require_admin_or_host(&state)?` in Rust on `auth_set_lock_config` (6-digit PIN, Clear PIN, Android BiometricPrompt, Require unlock on account switch) and on `system_set_local_pref` for `require_password_after_sign_out`, while preserving `auth_verify_pin` for all authenticated accounts.
+  - Updated `src/routes/settings/account/+page.svelte` so Local App Lock inputs, toggles, and Save/Clear actions are strictly restricted to `HOST`/`ADMIN` accounts (`authState.isAdminOrHost`), showing a clear read-only notice (`account.lockAdminOnly`) for standard `USER` accounts.
+
+## [2.9.14] - 2026-11-28
+
+### Added
+- **Android Home Screen Sticky Widget & Pinned Shortcut Color Customization (`XmemosMemoWidgetProvider.kt`, `XmemosStoragePlugin.kt`, `widget_memo_sticky.xml`, `MemoActionsSheet.svelte`, `src/lib/api/shortcut.ts`)**:
+  - Added full 6-color Sticky Note parity (`Amber Glow`, `Oceanic Blue`, `Emerald Mint`, `Rose Quartz`, `Indigo Mist`, `Graphite Glass`) with native Day/Night XML palettes (`values/colors.xml`, `values-night/colors.xml`) and R8 `keep.xml` protection for Android Home Screen memo widgets and pinned shortcut icons.
+  - Added an instant 1-tap color-cycle dot button directly on Android Home Screen sticky widgets using explicit `FLAG_RECEIVER_FOREGROUND` + `FLAG_IMMUTABLE` broadcasts (`ACTION_CYCLE_WIDGET_COLOR`) and full `AppWidgetManager.updateAppWidget()` updates—with zero background services.
+  - Added a 6-swatch Sticky Note color picker in the Mobile Action Sheet (`MemoActionsSheet.svelte`) wired to `plugin:xmemos-storage|update_memo_shortcut_color`, live-updating all pinned Home Screen widgets (`AppWidgetManager.getAppWidgetIds`) and pinned/dynamic shortcut icons (`ShortcutManagerCompat.updateShortcuts`), plus 2-way color sync back into the app when opening a memo from a widget.
+
+## [2.9.13] - 2026-11-28
+
+### Changed
+- **Instant Tauri v2 Android Cold-Start Optimization (`src/routes/+layout.svelte`, `src/lib/components/memo/MemoEditor.svelte`, `.github/workflows/android-release.yml`, `src-tauri/Cargo.toml`)**:
+  - Converted all 6 closed-by-default root overlays in `+layout.svelte` (`MemoActionsSheet` + `share-card.ts`, `ImageLightbox`, `LocationPreviewPopover` + `offline-world-data.ts`, `TimelineDisplayPopover`, `KeyboardShortcutsModal`, `PinLockOverlay`) and `OsmMapCanvas` in `MemoEditor.svelte` to on-demand Svelte 5 `{#await import(...)}` dynamic imports, removing >100 KB of unused JS/CSS from the Android Frame-0 boot bundle.
+  - Deferred `preloadCode()` to idle (`1200ms` + `requestIdleCallback`) so initial Home rendering gets 100% of Android CPU/I/O bandwidth.
+  - Enabled `packaging.jniLibs.useLegacyPackaging = false` in `android-release.yml` (uncompressed, 16KB page-aligned `libxmemos_lib.so` direct `mmap` loading per Tauri v2 Android docs) and switched Rust `[profile.release]` to `opt-level = "s"` to shrink native `.so` size and accelerate Android `linker64` cold starts.
+
 ## [2.9.12] - 2026-11-27
 
 ### Fixed

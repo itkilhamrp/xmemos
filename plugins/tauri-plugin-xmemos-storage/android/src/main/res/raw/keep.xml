@@ -1,3 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@layout/widget_memo_sticky,@drawable/bg_sticky_widget,@xml/xmemos_memo_widget_info,@color/xmemos_widget_*" />
+    tools:keep="@layout/widget_memo_sticky,@drawable/bg_sticky_widget*,@drawable/dot_sticky_color*,@xml/xmemos_memo_widget_info,@color/xmemos_widget_*" />

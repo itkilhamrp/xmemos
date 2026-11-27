@@ -42,13 +42,11 @@
 	import { themeState } from '#lib/state/theme.svelte.ts';
 	import { shortcutsState } from '#lib/state/shortcuts.svelte.ts';
 	import { toastState } from '#lib/state/toast.svelte.ts';
-	import PinLockOverlay from '#lib/components/auth/PinLockOverlay.svelte';
+	import { feedDisplayState } from '#lib/state/feed-display.svelte.ts';
+	import { lightboxState } from '#lib/state/lightbox.svelte.ts';
+	import { locationPreviewState } from '#lib/state/location-preview.svelte.ts';
+	import { memoActionsState } from '#lib/state/memo-actions.svelte.ts';
 	import BottomTabbar from '#lib/components/layout/BottomTabbar.svelte';
-	import ImageLightbox from '#lib/components/media/ImageLightbox.svelte';
-	import LocationPreviewPopover from '#lib/components/map/LocationPreviewPopover.svelte';
-	import TimelineDisplayPopover from '#lib/components/ui/TimelineDisplayPopover.svelte';
-	import KeyboardShortcutsModal from '#lib/components/ui/KeyboardShortcutsModal.svelte';
-	import MemoActionsSheet from '#lib/components/memo/MemoActionsSheet.svelte';
 
 	interface Props {
 		children: Snippet;
@@ -136,12 +134,18 @@
 		// Preload primary tab JS chunks once idle so switching tabs has 0ms dynamic-import delay
 		const preloadTimer = !isStickyRoute
 			? setTimeout(() => {
-					void preloadCode('/').catch(() => {});
-					void preloadCode('/explore').catch(() => {});
-					void preloadCode('/review').catch(() => {});
-					void preloadCode('/resources').catch(() => {});
-					void preloadCode('/settings').catch(() => {});
-				}, 250)
+					const runPreload = () => {
+						void preloadCode('/explore').catch(() => {});
+						void preloadCode('/review').catch(() => {});
+						void preloadCode('/resources').catch(() => {});
+						void preloadCode('/settings').catch(() => {});
+					};
+					if ('requestIdleCallback' in window) {
+						window.requestIdleCallback(runPreload, { timeout: 1500 });
+					} else {
+						runPreload();
+					}
+				}, 1200)
 			: null;
 
 		const stopKeyboardSync = initKeyboardViewportSync();
@@ -452,20 +456,43 @@
 		<!-- Persistent mobile Tabbar mounted once at root for smooth native iOS slider transitions -->
 		<BottomTabbar />
 
-		<!-- Root-mounted Memo Actions Sheet (isolated from card stacking/containment contexts) -->
-		<MemoActionsSheet />
+		<!-- On-demand lazy overlays: zero parse/compile cost on Android Frame-0 cold start -->
+		{#if memoActionsState.active !== null}
+			{#await import('#lib/components/memo/MemoActionsSheet.svelte') then { default: MemoActionsSheet }}
+				<MemoActionsSheet />
+			{/await}
+		{/if}
 
-		<ImageLightbox />
+		{#if lightboxState.current !== null}
+			{#await import('#lib/components/media/ImageLightbox.svelte') then { default: ImageLightbox }}
+				<ImageLightbox />
+			{/await}
+		{/if}
 
-		<!-- Root-mounted Official Memos Mini-Map Location Preview Popover (immune to card backdrop-filter) -->
-		<LocationPreviewPopover />
-		<TimelineDisplayPopover />
-		{#if isDesktopTauri()}
-			<KeyboardShortcutsModal />
+		{#if locationPreviewState.active !== null}
+			{#await import('#lib/components/map/LocationPreviewPopover.svelte') then { default: LocationPreviewPopover }}
+				<LocationPreviewPopover />
+			{/await}
+		{/if}
+
+		{#if feedDisplayState.popoverAnchor !== null}
+			{#await import('#lib/components/ui/TimelineDisplayPopover.svelte') then { default: TimelineDisplayPopover }}
+				<TimelineDisplayPopover />
+			{/await}
+		{/if}
+
+		{#if isDesktopTauri() && shortcutsState.cheatsheetOpened}
+			{#await import('#lib/components/ui/KeyboardShortcutsModal.svelte') then { default: KeyboardShortcutsModal }}
+				<KeyboardShortcutsModal />
+			{/await}
 		{/if}
 	{/if}
 
-	<PinLockOverlay />
+	{#if authState.isLocked}
+		{#await import('#lib/components/auth/PinLockOverlay.svelte') then { default: PinLockOverlay }}
+			<PinLockOverlay />
+		{/await}
+	{/if}
 
 	<!-- Authentic Konsta UI v5 iOS 26 Delete Confirmation Dialog (supports dynamic breakdown details) -->
 	<Dialog

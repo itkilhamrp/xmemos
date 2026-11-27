@@ -44,7 +44,14 @@
 	import { renderMemoShareCardPng } from '#lib/utils/share-card.ts';
 	import { formatRelativeTime } from '#lib/utils/date.ts';
 	import { saveBlobWithNativeDialog } from '#lib/utils/download.ts';
-	import { buildMemoShortcutMeta, loadStickyPrefs, shortcutApi } from '#lib/api/shortcut.ts';
+	import {
+		buildMemoShortcutMeta,
+		loadStickyPrefs,
+		saveStickyPrefs,
+		shortcutApi,
+		STICKY_COLOR_OPTIONS,
+		type StickyColorId
+	} from '#lib/api/shortcut.ts';
 	import { isDesktopTauri } from '#lib/utils/platform.ts';
 
 	const DESKTOP_MENU_WIDTH = 216;
@@ -52,6 +59,14 @@
 
 	let menuEl = $state<HTMLDivElement | null>(null);
 	let menuHeight = $state(280);
+	let selectedStickyColor = $state<StickyColorId>('yellow');
+
+	$effect(() => {
+		const uid = memoActionsState.active?.view.memo.uid;
+		if (memoActionsState.opened && uid) {
+			selectedStickyColor = loadStickyPrefs(uid).color;
+		}
+	});
 
 	$effect(() => {
 		if (memoActionsState.mode === 'desktop' && memoActionsState.opened && menuEl) {
@@ -130,7 +145,7 @@
 		const desktop = isDesktopTauri();
 		try {
 			const { title, preview } = buildMemoShortcutMeta(req.view.memo.content);
-			const stickyPrefs = loadStickyPrefs(req.view.memo.uid);
+			const stickyPrefs = { ...loadStickyPrefs(req.view.memo.uid), color: selectedStickyColor };
 			const loc = req.view.memo.payload.location;
 			const locationLabel = loc
 				? (loc.placeholder?.trim() || `${loc.latitude.toFixed(3)}, ${loc.longitude.toFixed(3)}`)
@@ -168,6 +183,30 @@
 			);
 		}
 		memoActionsState.close();
+	}
+
+	async function selectStickyShortcutColor(next: StickyColorId): Promise<void> {
+		const req = memoActionsState.active;
+		if (!req) return;
+		const uid = req.view.memo.uid;
+		selectedStickyColor = next;
+		const current = loadStickyPrefs(uid);
+		saveStickyPrefs(uid, { ...current, color: next });
+		try {
+			const { title, preview } = buildMemoShortcutMeta(req.view.memo.content);
+			const res = await shortcutApi.updateMemoShortcutColor({
+				memoUid: uid,
+				color: next,
+				title,
+				preview,
+				pinned: req.view.memo.pinned
+			});
+			if (res.updatedWidgets > 0 || res.updatedShortcut) {
+				toastState.show(i18n.t('memo.shortcutColorUpdated'), 'success');
+			}
+		} catch {
+			// Local sticky color preference is already persisted
+		}
 	}
 
 	function handleWindowKeydown(event: KeyboardEvent): void {
@@ -464,6 +503,32 @@
 						<BookmarkPlus class="h-[18px] w-[18px] shrink-0 opacity-80" aria-hidden="true" />
 						<span>{i18n.t(isDesktopTauri() ? 'memo.addToDesktop' : 'memo.pinToHome')}</span>
 					</button>
+
+					{#if !isDesktopTauri()}
+						<div class="flex items-center justify-between gap-2 border-t border-[var(--xm-glass-hairline)] px-4 py-2.5">
+							<span class="text-[13px] font-medium xm-text-secondary">
+								{i18n.t('memo.stickyColor')}
+							</span>
+							<div class="flex items-center gap-2" role="radiogroup" aria-label={i18n.t('memo.stickyColor')}>
+								{#each STICKY_COLOR_OPTIONS as opt (opt.id)}
+									<button
+										type="button"
+										role="radio"
+										aria-checked={selectedStickyColor === opt.id}
+										aria-label={opt.label}
+										title={opt.label}
+										class="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-90 {selectedStickyColor === opt.id ? 'ring-2 ring-[var(--xm-accent)] ring-offset-1 ring-offset-transparent' : ''}"
+										onclick={() => void selectStickyShortcutColor(opt.id)}
+									>
+										<span
+											class="h-5 w-5 rounded-full border border-black/15 dark:border-white/25"
+											style={`background: ${opt.swatch};`}
+										></span>
+									</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
 
 					{#if req.canManage && req.onRestore}
 						<button

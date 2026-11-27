@@ -50,6 +50,7 @@
 	let saving = $state(false);
 	let togglingSignOutLock = $state(false);
 
+	const canManageLocalLock = $derived(authState.isAdminOrHost);
 	const trimmedPassword = $derived(newPassword.trim());
 	const trimmedConfirm = $derived(confirmNewPassword.trim());
 	const passwordTooShort = $derived(trimmedPassword.length > 0 && trimmedPassword.length < 4);
@@ -129,6 +130,10 @@
 
 	async function toggleRequirePasswordAfterSignOut(): Promise<void> {
 		if (!authState.isAuthenticated || togglingSignOutLock) return;
+		if (!canManageLocalLock) {
+			toastState.show(i18n.t('account.lockAdminOnly'), 'error');
+			return;
+		}
 		const next = !requirePasswordAfterSignOut;
 		requirePasswordAfterSignOut = next;
 		togglingSignOutLock = true;
@@ -150,6 +155,10 @@
 	async function saveLock(clearPin = false, e?: SubmitEvent): Promise<void> {
 		e?.preventDefault();
 		if (!authState.isAuthenticated || saving) return;
+		if (!canManageLocalLock) {
+			toastState.show(i18n.t('account.lockAdminOnly'), 'error');
+			return;
+		}
 
 		const cleanPin = sanitizePinInput(newPin);
 		const cleanConfirm = sanitizePinInput(confirmNewPin);
@@ -313,6 +322,14 @@
 				<p class="text-xs leading-relaxed xm-text-secondary">
 					{i18n.t('account.lockDesc')}
 				</p>
+				{#if !canManageLocalLock}
+					<div
+						class="rounded-xl border border-[var(--xm-accent-border)] bg-[var(--xm-accent-soft)] px-3 py-2 text-xs font-medium xm-text-accent"
+						role="status"
+					>
+						{i18n.t('account.lockAdminOnly')}
+					</div>
+				{/if}
 				<div>
 					<div class="mb-1 flex items-center justify-between gap-2">
 						<label for="acc-pin" class="block text-xs font-semibold xm-text-secondary">
@@ -333,8 +350,9 @@
 						onkeydown={handlePinKeydown}
 						oninput={onNewPinInput}
 						placeholder={i18n.t('account.pinPlaceholder')}
+						disabled={!canManageLocalLock}
 						aria-invalid={pinInvalidLength}
-						class="xm-input tabular-nums"
+						class="xm-input tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
 					/>
 					{#if pinInvalidLength}
 						<p class="mt-1 text-xs font-medium text-[#d70015] dark:text-[#ff453a]">
@@ -362,8 +380,9 @@
 						onkeydown={handlePinKeydown}
 						oninput={onConfirmPinInput}
 						placeholder={i18n.t('account.confirmPinPlaceholder')}
+						disabled={!canManageLocalLock}
 						aria-invalid={confirmNewPin.length > 0 && pinMismatch}
-						class="xm-input tabular-nums"
+						class="xm-input tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
 					/>
 					{#if confirmNewPin.length > 0 && pinMismatch}
 						<p class="mt-1 text-xs font-medium text-[#d70015] dark:text-[#ff453a]">
@@ -377,7 +396,8 @@
 							{#snippet after()}
 								<Toggle
 									checked={biometricEnabled}
-									onchange={() => (biometricEnabled = !biometricEnabled)}
+									disabled={!canManageLocalLock}
+									onchange={() => canManageLocalLock && (biometricEnabled = !biometricEnabled)}
 								/>
 							{/snippet}
 						</ListItem>
@@ -386,7 +406,8 @@
 						{#snippet after()}
 							<Toggle
 								checked={requireUnlockOnSwitch}
-								onchange={() => (requireUnlockOnSwitch = !requireUnlockOnSwitch)}
+								disabled={!canManageLocalLock}
+								onchange={() => canManageLocalLock && (requireUnlockOnSwitch = !requireUnlockOnSwitch)}
 							/>
 						{/snippet}
 					</ListItem>
@@ -397,29 +418,31 @@
 						{#snippet after()}
 							<Toggle
 								checked={requirePasswordAfterSignOut}
-								disabled={togglingSignOutLock}
+								disabled={togglingSignOutLock || !canManageLocalLock}
 								onchange={toggleRequirePasswordAfterSignOut}
 							/>
 						{/snippet}
 					</ListItem>
 				</List>
-				<div class="grid gap-2.5 {authState.lockConfig?.hasPin ? 'grid-cols-2' : 'grid-cols-1'}">
-					<Button rounded type="submit" disabled={saving || pinFormInvalid}>
-						{i18n.t('account.saveLock')}
-					</Button>
-					{#if authState.lockConfig?.hasPin}
-						<Button
-							tonal
-							rounded
-							type="button"
-							class="!bg-[#d70015]/12 dark:!bg-[#ff453a]/16 !text-[#d70015] dark:!text-[#ff453a]"
-							disabled={saving}
-							onclick={() => saveLock(true)}
-						>
-							{i18n.t('account.clearPin')}
+				{#if canManageLocalLock}
+					<div class="grid gap-2.5 {authState.lockConfig?.hasPin ? 'grid-cols-2' : 'grid-cols-1'}">
+						<Button rounded type="submit" disabled={saving || pinFormInvalid}>
+							{i18n.t('account.saveLock')}
 						</Button>
-					{/if}
-				</div>
+						{#if authState.lockConfig?.hasPin}
+							<Button
+								tonal
+								rounded
+								type="button"
+								class="!bg-[#d70015]/12 dark:!bg-[#ff453a]/16 !text-[#d70015] dark:!text-[#ff453a]"
+								disabled={saving}
+								onclick={() => saveLock(true)}
+							>
+								{i18n.t('account.clearPin')}
+							</Button>
+						{/if}
+					</div>
+				{/if}
 			</form>
 		</div>
 	{/if}

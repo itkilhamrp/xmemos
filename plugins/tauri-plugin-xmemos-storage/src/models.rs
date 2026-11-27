@@ -146,6 +146,29 @@ pub struct CreateMemoShortcutResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PendingMemoShortcutResponse {
     pub memo_uid: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMemoShortcutColorRequest {
+    pub memo_uid: String,
+    pub color: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub preview: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMemoShortcutColorResponse {
+    pub updated_widgets: u32,
+    pub updated_shortcut: bool,
+    pub color: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

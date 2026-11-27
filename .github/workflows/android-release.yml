@@ -164,6 +164,11 @@ jobs:
                   includeInApk = false
                   includeInBundle = false
               }
+              packaging {
+                  jniLibs {
+                      useLegacyPackaging = false
+                  }
+              }
               buildTypes {
                   getByName("release") {
                       isMinifyEnabled = true

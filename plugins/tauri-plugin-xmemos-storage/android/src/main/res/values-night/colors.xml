@@ -6,4 +6,35 @@
     <color name="xmemos_widget_title">#F8FAFC</color>
     <color name="xmemos_widget_body">#CBD5E1</color>
     <color name="xmemos_widget_badge">#60A5FA</color>
+
+    <!-- 6 Sticky Note Themes (Dark Mode — 100% parity with Desktop STICKY_THEMES) -->
+    <color name="xmemos_widget_bg_slate">#1C1C1E</color>
+    <color name="xmemos_widget_border_slate">#38383A</color>
+    <color name="xmemos_widget_accent_slate">#0A84FF</color>
+    <color name="xmemos_widget_badge_slate">#60A5FA</color>
+
+    <color name="xmemos_widget_bg_yellow">#1F1C14</color>
+    <color name="xmemos_widget_border_yellow">#473D22</color>
+    <color name="xmemos_widget_accent_yellow">#FBBF24</color>
+    <color name="xmemos_widget_badge_yellow">#FCD34D</color>
+
+    <color name="xmemos_widget_bg_blue">#111C29</color>
+    <color name="xmemos_widget_border_blue">#1E3A5F</color>
+    <color name="xmemos_widget_accent_blue">#38BDF8</color>
+    <color name="xmemos_widget_badge_blue">#7DD3FC</color>
+
+    <color name="xmemos_widget_bg_green">#112119</color>
+    <color name="xmemos_widget_border_green">#1B4332</color>
+    <color name="xmemos_widget_accent_green">#34D399</color>
+    <color name="xmemos_widget_badge_green">#6EE7B7</color>
+
+    <color name="xmemos_widget_bg_pink">#23141E</color>
+    <color name="xmemos_widget_border_pink">#4C1D3D</color>
+    <color name="xmemos_widget_accent_pink">#F472B6</color>
+    <color name="xmemos_widget_badge_pink">#F9A8D4</color>
+
+    <color name="xmemos_widget_bg_purple">#191628</color>
+    <color name="xmemos_widget_border_purple">#3B2F63</color>
+    <color name="xmemos_widget_accent_purple">#A78BFA</color>
+    <color name="xmemos_widget_badge_purple">#C4B5FD</color>
 </resources>

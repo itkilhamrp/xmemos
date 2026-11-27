@@ -1,6 +1,6 @@
 [package]
 name = "xmemos"
-version = "2.9.12"
+version = "2.9.15"
 description = "Privacy-first 100% offline Android microblogging app with 1:1 Official Memos SQLite compatibility"
 authors = ["Xmemos Contributors"]
 license = "AGPL-3.0-or-later"
@@ -41,7 +41,7 @@ tempfile = "3.27.0"
 incremental = true
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = true
 codegen-units = 1
 panic = "abort"

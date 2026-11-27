@@ -274,13 +274,27 @@ impl<R: Runtime> XmemosStorage<R> {
         desktop_shortcut::create_desktop_memo_shortcut(&self.app, &req)
     }
 
+    pub fn update_memo_shortcut_color(
+        &self,
+        req: UpdateMemoShortcutColorRequest,
+    ) -> Result<UpdateMemoShortcutColorResponse> {
+        Ok(UpdateMemoShortcutColorResponse {
+            updated_widgets: 0,
+            updated_shortcut: false,
+            color: req.color,
+        })
+    }
+
     pub fn consume_pending_memo_shortcut(&self) -> Result<PendingMemoShortcutResponse> {
         let memo_uid = self
             .pending_shortcut_uid
             .lock()
             .ok()
             .and_then(|mut guard| guard.take());
-        Ok(PendingMemoShortcutResponse { memo_uid })
+        Ok(PendingMemoShortcutResponse {
+            memo_uid,
+            color: None,
+        })
     }
 
     pub fn compress_video(&self, req: CompressVideoRequest) -> Result<CompressVideoResponse> {

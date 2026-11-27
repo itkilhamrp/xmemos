@@ -11,5 +11,6 @@ permissions = [
   "allow-authenticate-biometric",
   "allow-check-biometric-available",
   "allow-create-memo-shortcut",
+  "allow-update-memo-shortcut-color",
   "allow-consume-pending-memo-shortcut"
 ]
